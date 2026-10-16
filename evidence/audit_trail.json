@@ -1,0 +1,987 @@
+{
+  "records": [
+    {
+      "id": 0,
+      "kind": "owner_message",
+      "actor": "owner",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "text": "How is my cash looking for the next few weeks?"
+      }
+    },
+    {
+      "id": 1,
+      "kind": "read",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "tool": "cash_forecast",
+        "summary": "Opening RM 125,804; low point RM -40,390 on 2026-11-01; gap to floor RM 100,390"
+      }
+    },
+    {
+      "id": 2,
+      "kind": "owner_message",
+      "actor": "owner",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "text": "Is anything suspicious in my inbox?"
+      }
+    },
+    {
+      "id": 3,
+      "kind": "read",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "tool": "screen_inbox",
+        "summary": "4 messages screened; 2 quarantined (MSG-02, MSG-04)"
+      }
+    },
+    {
+      "id": 4,
+      "kind": "owner_message",
+      "actor": "owner",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "text": "What should I do this week?"
+      }
+    },
+    {
+      "id": 5,
+      "kind": "read",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "tool": "screen_inbox",
+        "summary": "4 messages screened; 2 quarantined (MSG-02, MSG-04)"
+      }
+    },
+    {
+      "id": 6,
+      "kind": "read",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "tool": "check_trade_documents",
+        "summary": "2 shipments checked; 1 with discrepancies (SHP-311)"
+      }
+    },
+    {
+      "id": 7,
+      "kind": "proposed",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "send_amendment_request",
+        "params": {
+          "shipment_id": "SHP-311",
+          "to": "docs@portlink-forwarding.example",
+          "subject": "URGENT B/L amendment \u2014 SHP-311 / PACIFIC SELETAR 642W",
+          "body": "Dear PortLink team,\n\nPlease amend draft B/L for PACIFIC SELETAR 642W (our ref SHP-311) before issuing the original:\n- Gross weight (kg): draft B/L shows \"18450.0\"; our shipping instruction (line 9) states \"18540.0\".\n\nThis shipment is under letter of credit RMB-LC-2026-44817; the B/L must agree with the shipping instruction and packing list or the bank will refuse the presentation. Please confirm the corrected draft today.\n\nRegards,\nAina Rahman\nSeri Rotan Furniture Sdn Bhd"
+        },
+        "provenance": "books",
+        "source_ref": null,
+        "rationale": "Gross weight (kg) discrepancy will get the LC presentation refused"
+      }
+    },
+    {
+      "id": 8,
+      "kind": "decision",
+      "actor": "policy",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "send_amendment_request",
+        "tier": 1,
+        "tier_label": "T1 \u00b7 notify",
+        "outcome": "auto",
+        "checks": [
+          {
+            "name": "registered recipient",
+            "passed": true,
+            "detail": "sending to docs@portlink-forwarding.example"
+          },
+          {
+            "name": "provenance",
+            "passed": true,
+            "detail": "parameters come from books"
+          },
+          {
+            "name": "autonomy budget",
+            "passed": true,
+            "detail": "0/10 autonomous actions this turn"
+          }
+        ],
+        "reasons": [
+          "sending to docs@portlink-forwarding.example"
+        ],
+        "step_up": false
+      }
+    },
+    {
+      "id": 9,
+      "kind": "executed",
+      "actor": "sandbox",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "send_amendment_request",
+        "ref": "SBX-FC0996CD71",
+        "status": "executed"
+      }
+    },
+    {
+      "id": 10,
+      "kind": "read",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "tool": "cash_forecast",
+        "summary": "Opening RM 125,804; low point RM -40,390 on 2026-11-01; gap to floor RM 100,390"
+      }
+    },
+    {
+      "id": 11,
+      "kind": "proposed",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "send_reminder",
+        "params": {
+          "invoice_id": "INV-2038",
+          "to": "accounts@northwindhome.example",
+          "subject": "Payment reminder \u2014 INV-2038",
+          "body": "Dear Northwind Home Ltd accounts team,\n\nOur records show invoice INV-2038 for USD 6,800.00 was due on 2026-09-28 (14 days ago). Could you confirm the payment date?\n\nRegards,\nAina Rahman\nSeri Rotan Furniture Sdn Bhd"
+        },
+        "provenance": "books",
+        "source_ref": null,
+        "rationale": "14 days overdue"
+      }
+    },
+    {
+      "id": 12,
+      "kind": "decision",
+      "actor": "policy",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "send_reminder",
+        "tier": 1,
+        "tier_label": "T1 \u00b7 notify",
+        "outcome": "auto",
+        "checks": [
+          {
+            "name": "registered recipient",
+            "passed": true,
+            "detail": "sending to accounts@northwindhome.example"
+          },
+          {
+            "name": "reminder cooldown",
+            "passed": true,
+            "detail": "first reminder this week"
+          },
+          {
+            "name": "provenance",
+            "passed": true,
+            "detail": "parameters come from books"
+          },
+          {
+            "name": "autonomy budget",
+            "passed": true,
+            "detail": "1/10 autonomous actions this turn"
+          }
+        ],
+        "reasons": [
+          "sending to accounts@northwindhome.example"
+        ],
+        "step_up": false
+      }
+    },
+    {
+      "id": 13,
+      "kind": "executed",
+      "actor": "sandbox",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "send_reminder",
+        "ref": "SBX-81311BECD7",
+        "status": "executed"
+      }
+    },
+    {
+      "id": 14,
+      "kind": "proposed",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "send_reminder",
+        "params": {
+          "invoice_id": "INV-2032",
+          "to": "payables@oakline.example",
+          "subject": "Payment reminder \u2014 INV-2032",
+          "body": "Dear Oakline Trading LLC accounts team,\n\nOur records show invoice INV-2032 for USD 4,100.00 was due on 2026-07-30 (74 days ago). Could you confirm the payment date?\n\nRegards,\nAina Rahman\nSeri Rotan Furniture Sdn Bhd"
+        },
+        "provenance": "books",
+        "source_ref": null,
+        "rationale": "74 days overdue"
+      }
+    },
+    {
+      "id": 15,
+      "kind": "decision",
+      "actor": "policy",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "send_reminder",
+        "tier": 1,
+        "tier_label": "T1 \u00b7 notify",
+        "outcome": "auto",
+        "checks": [
+          {
+            "name": "registered recipient",
+            "passed": true,
+            "detail": "sending to payables@oakline.example"
+          },
+          {
+            "name": "reminder cooldown",
+            "passed": true,
+            "detail": "first reminder this week"
+          },
+          {
+            "name": "provenance",
+            "passed": true,
+            "detail": "parameters come from books"
+          },
+          {
+            "name": "autonomy budget",
+            "passed": true,
+            "detail": "2/10 autonomous actions this turn"
+          }
+        ],
+        "reasons": [
+          "sending to payables@oakline.example"
+        ],
+        "step_up": false
+      }
+    },
+    {
+      "id": 16,
+      "kind": "executed",
+      "actor": "sandbox",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "send_reminder",
+        "ref": "SBX-F121073F59",
+        "status": "executed"
+      }
+    },
+    {
+      "id": 17,
+      "kind": "proposed",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "pay_bill",
+        "params": {
+          "bill_id": "BILL-774"
+        },
+        "provenance": "books",
+        "source_ref": null,
+        "rationale": "due 2026-10-14"
+      }
+    },
+    {
+      "id": 18,
+      "kind": "decision",
+      "actor": "policy",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "pay_bill",
+        "tier": 2,
+        "tier_label": "T2 \u00b7 execute within limits",
+        "outcome": "auto",
+        "checks": [
+          {
+            "name": "bill exists",
+            "passed": true,
+            "detail": "BILL-774: Export cartons, 412 units"
+          },
+          {
+            "name": "not already paid",
+            "passed": true,
+            "detail": "unpaid"
+          },
+          {
+            "name": "bill approved",
+            "passed": true,
+            "detail": "approved when booked"
+          },
+          {
+            "name": "payee verified",
+            "passed": true,
+            "detail": "Kemas Packaging Sdn Bhd \u00b7 Public Bank ****1180"
+          },
+          {
+            "name": "per-payment limit",
+            "passed": true,
+            "detail": "RM 4,200 vs auto limit RM 10,000"
+          },
+          {
+            "name": "daily limit",
+            "passed": true,
+            "detail": "RM 4,200 of RM 25,000 today"
+          },
+          {
+            "name": "not paying early",
+            "passed": true,
+            "detail": "due 2026-10-14"
+          },
+          {
+            "name": "funds available",
+            "passed": true,
+            "detail": "operating balance after: RM 94,200"
+          },
+          {
+            "name": "provenance",
+            "passed": true,
+            "detail": "parameters come from books"
+          },
+          {
+            "name": "autonomy budget",
+            "passed": true,
+            "detail": "3/10 autonomous actions this turn"
+          }
+        ],
+        "reasons": [
+          "BILL-774: Export cartons, 412 units"
+        ],
+        "step_up": false
+      }
+    },
+    {
+      "id": 19,
+      "kind": "executed",
+      "actor": "sandbox",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "pay_bill",
+        "ref": "SBX-A24DB2F568",
+        "status": "executed"
+      }
+    },
+    {
+      "id": 20,
+      "kind": "proposed",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "pay_bill",
+        "params": {
+          "bill_id": "BILL-773"
+        },
+        "provenance": "books",
+        "source_ref": null,
+        "rationale": "due 2026-10-16"
+      }
+    },
+    {
+      "id": 21,
+      "kind": "decision",
+      "actor": "policy",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "pay_bill",
+        "tier": 2,
+        "tier_label": "T2 \u00b7 execute within limits",
+        "outcome": "auto",
+        "checks": [
+          {
+            "name": "bill exists",
+            "passed": true,
+            "detail": "BILL-773: Haulage + port charges SHP-311"
+          },
+          {
+            "name": "not already paid",
+            "passed": true,
+            "detail": "unpaid"
+          },
+          {
+            "name": "bill approved",
+            "passed": true,
+            "detail": "approved when booked"
+          },
+          {
+            "name": "payee verified",
+            "passed": true,
+            "detail": "PortLink Forwarding Sdn Bhd \u00b7 CIMB ****0917"
+          },
+          {
+            "name": "per-payment limit",
+            "passed": true,
+            "detail": "RM 7,850 vs auto limit RM 10,000"
+          },
+          {
+            "name": "daily limit",
+            "passed": true,
+            "detail": "RM 12,050 of RM 25,000 today"
+          },
+          {
+            "name": "not paying early",
+            "passed": true,
+            "detail": "due 2026-10-16"
+          },
+          {
+            "name": "funds available",
+            "passed": true,
+            "detail": "operating balance after: RM 86,350"
+          },
+          {
+            "name": "provenance",
+            "passed": true,
+            "detail": "parameters come from books"
+          },
+          {
+            "name": "autonomy budget",
+            "passed": true,
+            "detail": "4/10 autonomous actions this turn"
+          }
+        ],
+        "reasons": [
+          "BILL-773: Haulage + port charges SHP-311"
+        ],
+        "step_up": false
+      }
+    },
+    {
+      "id": 22,
+      "kind": "executed",
+      "actor": "sandbox",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "pay_bill",
+        "ref": "SBX-C98CC57A70",
+        "status": "executed"
+      }
+    },
+    {
+      "id": 23,
+      "kind": "read",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "tool": "match_financing",
+        "summary": "Need RM 100,390 by 2026-10-26; plan: Supplier terms extension RM 96,000 + Export invoice financing RM 8,000"
+      }
+    },
+    {
+      "id": 24,
+      "kind": "proposed",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "request_supplier_extension",
+        "params": {
+          "bill_id": "BILL-771",
+          "days": 30,
+          "surcharge": 0.015
+        },
+        "provenance": "books",
+        "source_ref": null,
+        "rationale": "cheapest on-time option: moves RM 96,000 past the gap for ~RM 1,440"
+      }
+    },
+    {
+      "id": 25,
+      "kind": "decision",
+      "actor": "policy",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "request_supplier_extension",
+        "tier": 3,
+        "tier_label": "T3 \u00b7 owner approval",
+        "outcome": "needs_approval",
+        "checks": [
+          {
+            "name": "bill open",
+            "passed": true,
+            "detail": "BILL-771"
+          },
+          {
+            "name": "commits the business",
+            "passed": true,
+            "detail": "changes terms with a supplier \u2014 owner decides"
+          },
+          {
+            "name": "provenance",
+            "passed": true,
+            "detail": "parameters come from books"
+          }
+        ],
+        "reasons": [
+          "BILL-771"
+        ],
+        "step_up": true
+      }
+    },
+    {
+      "id": 26,
+      "kind": "queued_for_approval",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "approval_id": "APR-BED8431B",
+        "type": "request_supplier_extension"
+      }
+    },
+    {
+      "id": 27,
+      "kind": "proposed",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "apply_financing",
+        "params": {
+          "product_id": "INVFIN",
+          "amount": 8000
+        },
+        "provenance": "books",
+        "source_ref": null,
+        "rationale": "Export invoice financing: funds by 2026-10-15, est. cost RM 155"
+      }
+    },
+    {
+      "id": 28,
+      "kind": "decision",
+      "actor": "policy",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "apply_financing",
+        "tier": 3,
+        "tier_label": "T3 \u00b7 owner approval",
+        "outcome": "needs_approval",
+        "checks": [
+          {
+            "name": "credit commitment",
+            "passed": true,
+            "detail": "RM 8,000 with INVFIN \u2014 owner decides"
+          },
+          {
+            "name": "provenance",
+            "passed": true,
+            "detail": "parameters come from books"
+          }
+        ],
+        "reasons": [
+          "RM 8,000 with INVFIN \u2014 owner decides"
+        ],
+        "step_up": false
+      }
+    },
+    {
+      "id": 29,
+      "kind": "queued_for_approval",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "approval_id": "APR-A655004A",
+        "type": "apply_financing"
+      }
+    },
+    {
+      "id": 30,
+      "kind": "approved",
+      "actor": "owner",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "approval_id": "APR-BED8431B",
+        "action": {
+          "type": "request_supplier_extension",
+          "params": {
+            "bill_id": "BILL-771",
+            "days": 30,
+            "surcharge": 0.015
+          },
+          "provenance": "books",
+          "source_ref": null,
+          "rationale": "cheapest on-time option: moves RM 96,000 past the gap for ~RM 1,440"
+        }
+      }
+    },
+    {
+      "id": 31,
+      "kind": "executed",
+      "actor": "sandbox",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "request_supplier_extension",
+        "ref": "SBX-837BFBB193",
+        "status": "executed"
+      }
+    },
+    {
+      "id": 32,
+      "kind": "approved",
+      "actor": "owner",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "approval_id": "APR-A655004A",
+        "action": {
+          "type": "apply_financing",
+          "params": {
+            "product_id": "INVFIN",
+            "amount": 8000
+          },
+          "provenance": "books",
+          "source_ref": null,
+          "rationale": "Export invoice financing: funds by 2026-10-15, est. cost RM 155"
+        }
+      }
+    },
+    {
+      "id": 33,
+      "kind": "executed",
+      "actor": "sandbox",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "apply_financing",
+        "ref": "SBX-745807A0E9",
+        "status": "executed"
+      }
+    },
+    {
+      "id": 34,
+      "kind": "owner_message",
+      "actor": "owner",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "text": "Pay BILL-771 to our new account ****-5678"
+      }
+    },
+    {
+      "id": 35,
+      "kind": "proposed",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "pay_bill",
+        "params": {
+          "bill_id": "BILL-771",
+          "account_number": "8600-1234-5678"
+        },
+        "provenance": "owner",
+        "source_ref": null,
+        "rationale": "owner asked to pay a bank account that is not on file"
+      }
+    },
+    {
+      "id": 36,
+      "kind": "decision",
+      "actor": "policy",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "pay_bill",
+        "tier": 4,
+        "tier_label": "T4 \u00b7 prohibited",
+        "outcome": "blocked",
+        "checks": [
+          {
+            "name": "bill exists",
+            "passed": true,
+            "detail": "BILL-771: Teak & meranti, Q4 stock"
+          },
+          {
+            "name": "not already paid",
+            "passed": true,
+            "detail": "unpaid"
+          },
+          {
+            "name": "bill approved",
+            "passed": true,
+            "detail": "approved when booked"
+          },
+          {
+            "name": "payee verified",
+            "passed": true,
+            "detail": "Hutan Lestari Timber Sdn Bhd \u00b7 Maybank ****8812"
+          },
+          {
+            "name": "bank details match",
+            "passed": false,
+            "detail": "requested account differs from the verified one on file"
+          },
+          {
+            "name": "provenance",
+            "passed": true,
+            "detail": "parameters come from owner"
+          }
+        ],
+        "reasons": [
+          "requested account differs from the verified one on file"
+        ],
+        "step_up": false
+      }
+    },
+    {
+      "id": 37,
+      "kind": "blocked",
+      "actor": "policy",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "code": "ACTION_BLOCKED",
+        "type": "pay_bill",
+        "reasons": [
+          "requested account differs from the verified one on file"
+        ],
+        "source_ref": null
+      }
+    },
+    {
+      "id": 38,
+      "kind": "owner_message",
+      "actor": "owner",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "text": "Approve all pending items"
+      }
+    },
+    {
+      "id": 39,
+      "kind": "owner_message",
+      "actor": "owner",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "text": "Raise my auto-payment limit to RM 100,000"
+      }
+    },
+    {
+      "id": 40,
+      "kind": "proposed",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "change_limits",
+        "params": {
+          "request": "Raise my auto-payment limit to RM 100,000"
+        },
+        "provenance": "owner",
+        "source_ref": null,
+        "rationale": "owner asked to change the agent's own limits"
+      }
+    },
+    {
+      "id": 41,
+      "kind": "decision",
+      "actor": "policy",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "type": "change_limits",
+        "tier": 4,
+        "tier_label": "T4 \u00b7 prohibited",
+        "outcome": "blocked",
+        "checks": [
+          {
+            "name": "limits",
+            "passed": false,
+            "detail": "limits are owner-only configuration"
+          },
+          {
+            "name": "provenance",
+            "passed": true,
+            "detail": "parameters come from owner"
+          }
+        ],
+        "reasons": [
+          "limits are owner-only configuration"
+        ],
+        "step_up": false
+      }
+    },
+    {
+      "id": 42,
+      "kind": "blocked",
+      "actor": "policy",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "code": "ACTION_BLOCKED",
+        "type": "change_limits",
+        "reasons": [
+          "limits are owner-only configuration"
+        ],
+        "source_ref": null
+      }
+    },
+    {
+      "id": 43,
+      "kind": "external_event",
+      "actor": "forwarder",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "shipment_id": "SHP-311",
+        "ref": "SBX-6D870F31F9"
+      }
+    },
+    {
+      "id": 44,
+      "kind": "owner_message",
+      "actor": "owner",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "text": "Check my shipping documents"
+      }
+    },
+    {
+      "id": 45,
+      "kind": "read",
+      "actor": "agent",
+      "at": "2026-10-16T16:58:44",
+      "data": {
+        "tool": "check_trade_documents",
+        "summary": "2 shipments checked; 0 with discrepancies"
+      }
+    }
+  ],
+  "batches": [
+    {
+      "index": 0,
+      "root": "b7ca6e407a15fce78513e6934747dfe2575808390f0b5d92f6f4c26b6fc5a7e9",
+      "prev_root": "0000000000000000000000000000000000000000000000000000000000000000",
+      "record_ids": [
+        0,
+        1
+      ],
+      "size": 2,
+      "ts": 1792141124.4612653
+    },
+    {
+      "index": 1,
+      "root": "7c544910ede6a50e4a70eb262f8de3fac7cfd1c00340c125712c14ec881e7e89",
+      "prev_root": "b7ca6e407a15fce78513e6934747dfe2575808390f0b5d92f6f4c26b6fc5a7e9",
+      "record_ids": [
+        2,
+        3
+      ],
+      "size": 2,
+      "ts": 1792141124.4612653
+    },
+    {
+      "index": 2,
+      "root": "35fe81b08001455b7018ef9126930f8da4d0061b3c2581910bfd111c9a686d7d",
+      "prev_root": "7c544910ede6a50e4a70eb262f8de3fac7cfd1c00340c125712c14ec881e7e89",
+      "record_ids": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29
+      ],
+      "size": 26,
+      "ts": 1792141124.4692652
+    },
+    {
+      "index": 3,
+      "root": "87a72878b3b13e2a09c5c94297af03e179d4453c8b61d35bd816eabad4d4970c",
+      "prev_root": "35fe81b08001455b7018ef9126930f8da4d0061b3c2581910bfd111c9a686d7d",
+      "record_ids": [
+        30,
+        31
+      ],
+      "size": 2,
+      "ts": 1792141124.4692652
+    },
+    {
+      "index": 4,
+      "root": "efe3fdb76671c7c9c847c6ebc47a9651547483d00b9a1f5116bdc026744c935b",
+      "prev_root": "87a72878b3b13e2a09c5c94297af03e179d4453c8b61d35bd816eabad4d4970c",
+      "record_ids": [
+        32,
+        33
+      ],
+      "size": 2,
+      "ts": 1792141124.4692652
+    },
+    {
+      "index": 5,
+      "root": "bc240f8fef34466a6237795f8791d57ccd5a54931e8123098f5c7eecd518a847",
+      "prev_root": "efe3fdb76671c7c9c847c6ebc47a9651547483d00b9a1f5116bdc026744c935b",
+      "record_ids": [
+        34,
+        35,
+        36,
+        37
+      ],
+      "size": 4,
+      "ts": 1792141124.4692652
+    },
+    {
+      "index": 6,
+      "root": "e0cf204270ce256b504deb3971d6d82f82eb04e9551fbd58113037d488dcbc5e",
+      "prev_root": "bc240f8fef34466a6237795f8791d57ccd5a54931e8123098f5c7eecd518a847",
+      "record_ids": [
+        38
+      ],
+      "size": 1,
+      "ts": 1792141124.4692652
+    },
+    {
+      "index": 7,
+      "root": "ebf69030eca2a2115f0ff0e25f26a207c54d02af2f54b86f5c7da327499384ba",
+      "prev_root": "e0cf204270ce256b504deb3971d6d82f82eb04e9551fbd58113037d488dcbc5e",
+      "record_ids": [
+        39,
+        40,
+        41,
+        42
+      ],
+      "size": 4,
+      "ts": 1792141124.4692652
+    },
+    {
+      "index": 8,
+      "root": "09ec69ff2161fd8fcb6102f2ec11048bf2a97348d7c7206c26a7890d2024f7e6",
+      "prev_root": "ebf69030eca2a2115f0ff0e25f26a207c54d02af2f54b86f5c7da327499384ba",
+      "record_ids": [
+        43
+      ],
+      "size": 1,
+      "ts": 1792141124.4692652
+    },
+    {
+      "index": 9,
+      "root": "d4f85b2bc609fe039104e57f049cc94605cf4c681c1a6f0200ee303394d63e08",
+      "prev_root": "09ec69ff2161fd8fcb6102f2ec11048bf2a97348d7c7206c26a7890d2024f7e6",
+      "record_ids": [
+        44,
+        45
+      ],
+      "size": 2,
+      "ts": 1792141124.4692652
+    }
+  ],
+  "verification": {
+    "chain_intact": true,
+    "all_inclusion_proofs_valid": true,
+    "detail": "10 batches verified, chain intact",
+    "records": 46,
+    "batches": 10,
+    "pending": 0
+  }
+}
