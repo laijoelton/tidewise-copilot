@@ -42,6 +42,7 @@ export const api = {
   forwarderReply: (shipment_id: string) =>
     call('/api/simulate/forwarder-reply', { method: 'POST', body: JSON.stringify({ shipment_id }) }),
   redteam: () => call('/api/redteam', { method: 'POST', body: '{}' }),
+  ml: () => call('/api/ml'),
   whatif: (scenario: Json) => call('/api/whatif', { method: 'POST', body: JSON.stringify(scenario) }),
   setPaused: (paused: boolean) => call('/api/autonomy', { method: 'POST', owner: true, body: JSON.stringify({ paused }) }),
   reset: () => call('/api/reset', { method: 'POST', owner: true, body: '{}' }),

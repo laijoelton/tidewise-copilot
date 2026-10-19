@@ -113,6 +113,8 @@ def _transactions(as_of: date, history: List[Invoice], rng: random.Random) -> Li
             add(day, "MYR-OPS", -58_000, "payroll", "Payroll (46 staff)", "monthly salaries")
         if day.weekday() == 2:
             add(day, "MYR-OPS", -rng.uniform(22_000, 34_000), "cogs", "Hutan Lestari Timber Sdn Bhd", "timber")
+        if day.day == 18:
+            add(day, "MYR-OPS", -rng.uniform(3_600, 4_700), "cogs", "Kemas Packaging Sdn Bhd", "export cartons")
         if day.weekday() == 4 and rng.random() < 0.5:
             add(day, "MYR-OPS", -rng.uniform(2_000, 6_000), "logistics", "PortLink Forwarding Sdn Bhd", "haulage")
         if day.day == 10:

@@ -4,7 +4,7 @@
       "id": 0,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "text": "How is my cash looking for the next few weeks?"
       }
@@ -13,7 +13,7 @@
       "id": 1,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "tool": "cash_forecast",
         "summary": "Opening RM 125,804; low point RM -40,390 on 2026-11-01; gap to floor RM 100,390"
@@ -23,7 +23,7 @@
       "id": 2,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "text": "Is anything suspicious in my inbox?"
       }
@@ -32,7 +32,7 @@
       "id": 3,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "tool": "screen_inbox",
         "summary": "4 messages screened; 2 quarantined (MSG-02, MSG-04)"
@@ -42,7 +42,7 @@
       "id": 4,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "text": "What should I do this week?"
       }
@@ -51,7 +51,7 @@
       "id": 5,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "tool": "screen_inbox",
         "summary": "4 messages screened; 2 quarantined (MSG-02, MSG-04)"
@@ -61,7 +61,7 @@
       "id": 6,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "tool": "check_trade_documents",
         "summary": "2 shipments checked; 1 with discrepancies (SHP-311)"
@@ -71,14 +71,14 @@
       "id": 7,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "type": "send_amendment_request",
         "params": {
           "shipment_id": "SHP-311",
           "to": "docs@portlink-forwarding.example",
           "subject": "URGENT B/L amendment \u2014 SHP-311 / PACIFIC SELETAR 642W",
-          "body": "Dear PortLink team,\n\nPlease amend draft B/L for PACIFIC SELETAR 642W (our ref SHP-311) before issuing the original:\n- Gross weight (kg): draft B/L shows \"18450.0\"; our shipping instruction (line 9) states \"18540.0\".\n\nThis shipment is under letter of credit RMB-LC-2026-44817; the B/L must agree with the shipping instruction and packing list or the bank will refuse the presentation. Please confirm the corrected draft today.\n\nRegards,\nAina Rahman\nSeri Rotan Furniture Sdn Bhd"
+          "body": "Dear PortLink team,\n\nPlease amend draft B/L for PACIFIC SELETAR 642W (our ref SHP-311) before issuing the original:\n- Gross weight (kg): draft B/L shows 18,450; our shipping instruction (line 9) states 18,540.\n\nThis shipment is under letter of credit RMB-LC-2026-44817; the B/L must agree with the shipping instruction and packing list or the bank will refuse the presentation. Please confirm the corrected draft today.\n\nRegards,\nAina Rahman\nSeri Rotan Furniture Sdn Bhd"
         },
         "provenance": "books",
         "source_ref": null,
@@ -89,7 +89,7 @@
       "id": 8,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "type": "send_amendment_request",
         "tier": 1,
@@ -122,10 +122,10 @@
       "id": 9,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "type": "send_amendment_request",
-        "ref": "SBX-FC0996CD71",
+        "ref": "SBX-E34D5D448F",
         "status": "executed"
       }
     },
@@ -133,7 +133,7 @@
       "id": 10,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "tool": "cash_forecast",
         "summary": "Opening RM 125,804; low point RM -40,390 on 2026-11-01; gap to floor RM 100,390"
@@ -143,7 +143,7 @@
       "id": 11,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "type": "send_reminder",
         "params": {
@@ -161,7 +161,7 @@
       "id": 12,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "type": "send_reminder",
         "tier": 1,
@@ -199,7 +199,7 @@
       "id": 13,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "type": "send_reminder",
         "ref": "SBX-81311BECD7",
@@ -210,7 +210,7 @@
       "id": 14,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "type": "send_reminder",
         "params": {
@@ -228,7 +228,7 @@
       "id": 15,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "type": "send_reminder",
         "tier": 1,
@@ -266,7 +266,7 @@
       "id": 16,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "type": "send_reminder",
         "ref": "SBX-F121073F59",
@@ -277,7 +277,7 @@
       "id": 17,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:20",
       "data": {
         "type": "pay_bill",
         "params": {
@@ -292,7 +292,7 @@
       "id": 18,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "pay_bill",
         "tier": 2,
@@ -340,6 +340,11 @@
             "detail": "operating balance after: RM 94,200"
           },
           {
+            "name": "payment pattern (ML)",
+            "passed": true,
+            "detail": "1.0\u00d7 the typical RM 4,192 paid to Kemas Packaging Sdn Bhd (6 past payments) \u2014 in line with history"
+          },
+          {
             "name": "provenance",
             "passed": true,
             "detail": "parameters come from books"
@@ -360,7 +365,7 @@
       "id": 19,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "pay_bill",
         "ref": "SBX-A24DB2F568",
@@ -371,7 +376,7 @@
       "id": 20,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "pay_bill",
         "params": {
@@ -386,7 +391,7 @@
       "id": 21,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "pay_bill",
         "tier": 2,
@@ -434,6 +439,11 @@
             "detail": "operating balance after: RM 86,350"
           },
           {
+            "name": "payment pattern (ML)",
+            "passed": true,
+            "detail": "2.1\u00d7 the typical RM 3,798 paid to PortLink Forwarding Sdn Bhd (18 past payments) \u2014 in line with history"
+          },
+          {
             "name": "provenance",
             "passed": true,
             "detail": "parameters come from books"
@@ -454,7 +464,7 @@
       "id": 22,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "pay_bill",
         "ref": "SBX-C98CC57A70",
@@ -465,7 +475,7 @@
       "id": 23,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "tool": "match_financing",
         "summary": "Need RM 100,390 by 2026-10-26; plan: Supplier terms extension RM 96,000 + Export invoice financing RM 8,000"
@@ -475,7 +485,7 @@
       "id": 24,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "request_supplier_extension",
         "params": {
@@ -492,7 +502,7 @@
       "id": 25,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "request_supplier_extension",
         "tier": 3,
@@ -525,9 +535,9 @@
       "id": 26,
       "kind": "queued_for_approval",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
-        "approval_id": "APR-BED8431B",
+        "approval_id": "APR-9C99D38C",
         "type": "request_supplier_extension"
       }
     },
@@ -535,7 +545,7 @@
       "id": 27,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "apply_financing",
         "params": {
@@ -551,7 +561,7 @@
       "id": 28,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "apply_financing",
         "tier": 3,
@@ -579,9 +589,9 @@
       "id": 29,
       "kind": "queued_for_approval",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
-        "approval_id": "APR-A655004A",
+        "approval_id": "APR-6FF9018E",
         "type": "apply_financing"
       }
     },
@@ -589,9 +599,9 @@
       "id": 30,
       "kind": "approved",
       "actor": "owner",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
-        "approval_id": "APR-BED8431B",
+        "approval_id": "APR-9C99D38C",
         "action": {
           "type": "request_supplier_extension",
           "params": {
@@ -609,7 +619,7 @@
       "id": 31,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "request_supplier_extension",
         "ref": "SBX-837BFBB193",
@@ -620,9 +630,9 @@
       "id": 32,
       "kind": "approved",
       "actor": "owner",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
-        "approval_id": "APR-A655004A",
+        "approval_id": "APR-6FF9018E",
         "action": {
           "type": "apply_financing",
           "params": {
@@ -639,7 +649,7 @@
       "id": 33,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "apply_financing",
         "ref": "SBX-745807A0E9",
@@ -650,7 +660,7 @@
       "id": 34,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "text": "Pay BILL-771 to our new account ****-5678"
       }
@@ -659,7 +669,7 @@
       "id": 35,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "pay_bill",
         "params": {
@@ -675,7 +685,7 @@
       "id": 36,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "pay_bill",
         "tier": 4,
@@ -723,7 +733,7 @@
       "id": 37,
       "kind": "blocked",
       "actor": "policy",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "code": "ACTION_BLOCKED",
         "type": "pay_bill",
@@ -737,7 +747,7 @@
       "id": 38,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "text": "Approve all pending items"
       }
@@ -746,7 +756,7 @@
       "id": 39,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "text": "Raise my auto-payment limit to RM 100,000"
       }
@@ -755,7 +765,7 @@
       "id": 40,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "change_limits",
         "params": {
@@ -770,7 +780,7 @@
       "id": 41,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "type": "change_limits",
         "tier": 4,
@@ -798,7 +808,7 @@
       "id": 42,
       "kind": "blocked",
       "actor": "policy",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "code": "ACTION_BLOCKED",
         "type": "change_limits",
@@ -812,7 +822,7 @@
       "id": 43,
       "kind": "external_event",
       "actor": "forwarder",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "shipment_id": "SHP-311",
         "ref": "SBX-6D870F31F9"
@@ -822,7 +832,7 @@
       "id": 44,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "text": "Check my shipping documents"
       }
@@ -831,7 +841,7 @@
       "id": 45,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-16T16:58:44",
+      "at": "2026-10-19T22:01:21",
       "data": {
         "tool": "check_trade_documents",
         "summary": "2 shipments checked; 0 with discrepancies"
@@ -841,30 +851,30 @@
   "batches": [
     {
       "index": 0,
-      "root": "b7ca6e407a15fce78513e6934747dfe2575808390f0b5d92f6f4c26b6fc5a7e9",
+      "root": "dfd7ff0ff8a5adb198adb571b80abce1d9ca1c6ad7afd3aa721b4a54e6b5276a",
       "prev_root": "0000000000000000000000000000000000000000000000000000000000000000",
       "record_ids": [
         0,
         1
       ],
       "size": 2,
-      "ts": 1792141124.4612653
+      "ts": 1792418480.5214038
     },
     {
       "index": 1,
-      "root": "7c544910ede6a50e4a70eb262f8de3fac7cfd1c00340c125712c14ec881e7e89",
-      "prev_root": "b7ca6e407a15fce78513e6934747dfe2575808390f0b5d92f6f4c26b6fc5a7e9",
+      "root": "25dff5873d3c9da220816ca80fa64b99b28d2d9e4c7d12a6bd60f08b1389486d",
+      "prev_root": "dfd7ff0ff8a5adb198adb571b80abce1d9ca1c6ad7afd3aa721b4a54e6b5276a",
       "record_ids": [
         2,
         3
       ],
       "size": 2,
-      "ts": 1792141124.4612653
+      "ts": 1792418480.5214038
     },
     {
       "index": 2,
-      "root": "35fe81b08001455b7018ef9126930f8da4d0061b3c2581910bfd111c9a686d7d",
-      "prev_root": "7c544910ede6a50e4a70eb262f8de3fac7cfd1c00340c125712c14ec881e7e89",
+      "root": "8f3b59be393e4c0cff4b39a18f34f045e49483187f57c9f0a5912e3a7824faae",
+      "prev_root": "25dff5873d3c9da220816ca80fa64b99b28d2d9e4c7d12a6bd60f08b1389486d",
       "record_ids": [
         4,
         5,
@@ -894,34 +904,34 @@
         29
       ],
       "size": 26,
-      "ts": 1792141124.4692652
+      "ts": 1792418481.1552024
     },
     {
       "index": 3,
-      "root": "87a72878b3b13e2a09c5c94297af03e179d4453c8b61d35bd816eabad4d4970c",
-      "prev_root": "35fe81b08001455b7018ef9126930f8da4d0061b3c2581910bfd111c9a686d7d",
+      "root": "f4d6cd072b9353c974a0bcc2d5de382aba4118a2ad7daf1e1a9382d78c1df0d1",
+      "prev_root": "8f3b59be393e4c0cff4b39a18f34f045e49483187f57c9f0a5912e3a7824faae",
       "record_ids": [
         30,
         31
       ],
       "size": 2,
-      "ts": 1792141124.4692652
+      "ts": 1792418481.1552024
     },
     {
       "index": 4,
-      "root": "efe3fdb76671c7c9c847c6ebc47a9651547483d00b9a1f5116bdc026744c935b",
-      "prev_root": "87a72878b3b13e2a09c5c94297af03e179d4453c8b61d35bd816eabad4d4970c",
+      "root": "8d93f9a28a51a2431e476d800d92cfa7e3ff7e6edd9b15675550a503b404c25a",
+      "prev_root": "f4d6cd072b9353c974a0bcc2d5de382aba4118a2ad7daf1e1a9382d78c1df0d1",
       "record_ids": [
         32,
         33
       ],
       "size": 2,
-      "ts": 1792141124.4692652
+      "ts": 1792418481.1656146
     },
     {
       "index": 5,
-      "root": "bc240f8fef34466a6237795f8791d57ccd5a54931e8123098f5c7eecd518a847",
-      "prev_root": "efe3fdb76671c7c9c847c6ebc47a9651547483d00b9a1f5116bdc026744c935b",
+      "root": "995879e0624ec83ad4956ae2834f239f5e2f21df5a6bd01b7bc50e2ff10ec4c5",
+      "prev_root": "8d93f9a28a51a2431e476d800d92cfa7e3ff7e6edd9b15675550a503b404c25a",
       "record_ids": [
         34,
         35,
@@ -929,22 +939,22 @@
         37
       ],
       "size": 4,
-      "ts": 1792141124.4692652
+      "ts": 1792418481.1669095
     },
     {
       "index": 6,
-      "root": "e0cf204270ce256b504deb3971d6d82f82eb04e9551fbd58113037d488dcbc5e",
-      "prev_root": "bc240f8fef34466a6237795f8791d57ccd5a54931e8123098f5c7eecd518a847",
+      "root": "a94f724a62678671e1a940f274b368c2155b02bac98dde3a313af618d3893290",
+      "prev_root": "995879e0624ec83ad4956ae2834f239f5e2f21df5a6bd01b7bc50e2ff10ec4c5",
       "record_ids": [
         38
       ],
       "size": 1,
-      "ts": 1792141124.4692652
+      "ts": 1792418481.1669095
     },
     {
       "index": 7,
-      "root": "ebf69030eca2a2115f0ff0e25f26a207c54d02af2f54b86f5c7da327499384ba",
-      "prev_root": "e0cf204270ce256b504deb3971d6d82f82eb04e9551fbd58113037d488dcbc5e",
+      "root": "68a9a0740bbcdeb0110b65dd08ad8ba022429e33bf985c77cae555a973e15cdf",
+      "prev_root": "a94f724a62678671e1a940f274b368c2155b02bac98dde3a313af618d3893290",
       "record_ids": [
         39,
         40,
@@ -952,28 +962,28 @@
         42
       ],
       "size": 4,
-      "ts": 1792141124.4692652
+      "ts": 1792418481.1669095
     },
     {
       "index": 8,
-      "root": "09ec69ff2161fd8fcb6102f2ec11048bf2a97348d7c7206c26a7890d2024f7e6",
-      "prev_root": "ebf69030eca2a2115f0ff0e25f26a207c54d02af2f54b86f5c7da327499384ba",
+      "root": "520e3f95db8c113f664f5c170a3d2400da0b4af8e6b1bcb97b24d8c9324aad99",
+      "prev_root": "68a9a0740bbcdeb0110b65dd08ad8ba022429e33bf985c77cae555a973e15cdf",
       "record_ids": [
         43
       ],
       "size": 1,
-      "ts": 1792141124.4692652
+      "ts": 1792418481.169899
     },
     {
       "index": 9,
-      "root": "d4f85b2bc609fe039104e57f049cc94605cf4c681c1a6f0200ee303394d63e08",
-      "prev_root": "09ec69ff2161fd8fcb6102f2ec11048bf2a97348d7c7206c26a7890d2024f7e6",
+      "root": "800136991b41cb65680ccbb486caee64dd56a66916d8f7f4512e2c23add0ec36",
+      "prev_root": "520e3f95db8c113f664f5c170a3d2400da0b4af8e6b1bcb97b24d8c9324aad99",
       "record_ids": [
         44,
         45
       ],
       "size": 2,
-      "ts": 1792141124.4692652
+      "ts": 1792418481.169899
     }
   ],
   "verification": {

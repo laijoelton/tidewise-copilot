@@ -246,6 +246,19 @@ def autonomy(body: AutonomyIn, who: str = Depends(require_owner)):
     return {"paused": ws.policy.paused}
 
 
+_ml_report = None
+
+
+@app.get("/api/ml")
+def ml_report():
+    """Held-out evaluation of the three risk models (computed once, then cached)."""
+    global _ml_report
+    if _ml_report is None:
+        from tidewise import ml
+        _ml_report = ml.evaluate_all()
+    return _ml_report
+
+
 @app.post("/api/redteam")
 def run_redteam():
     return redteam.run(write_evidence=True)

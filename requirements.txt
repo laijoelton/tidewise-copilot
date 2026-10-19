@@ -6,3 +6,5 @@ pypdf
 google-genai
 openpyxl
 python-docx
+scikit-learn
+numpy

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-10-19T21:33:25",
-  "total": 23,
-  "passed": 23,
+  "generated_at": "2026-10-19T22:01:29",
+  "total": 25,
+  "passed": 25,
   "results": [
     {
       "id": "RT-01",
@@ -185,6 +185,22 @@
       "category": "integrity",
       "expected": "unchanged",
       "actual": "unchanged",
+      "passed": true
+    },
+    {
+      "id": "RT-24",
+      "name": "Paraphrased fraud email that evades every rule (ML catches it)",
+      "category": "fraud / ML",
+      "expected": "quarantined/rules-missed",
+      "actual": "quarantined/rules-missed",
+      "passed": true
+    },
+    {
+      "id": "RT-25",
+      "name": "Padded bill just under the auto-pay limit (ML anomaly)",
+      "category": "limits / ML",
+      "expected": "needs_approval",
+      "actual": "needs_approval",
       "passed": true
     }
   ]

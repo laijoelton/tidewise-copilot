@@ -106,6 +106,7 @@ class Policy:
         self.quarantined_sources: set = set()
         self.auto_actions_this_turn = 0
         self.paused = False                          # owner's kill switch: no autonomous actions at all
+        self._anomaly = None                         # ML payment-anomaly model, built on first use
 
     @property
     def auto_paid_today(self) -> float:
@@ -197,7 +198,12 @@ class Policy:
         checks.append(Check("funds available", balance_after >= 0, f"operating balance after: RM {balance_after:,.0f}"))
         if balance_after < 0:
             return Tier.T4_PROHIBITED
-        if not (within_tx and within_day) or early or not bill.approved:
+        if self._anomaly is None:
+            from .ml import PaymentAnomaly
+            self._anomaly = PaymentAnomaly(self.company)
+        pattern = self._anomaly.assess(payee.name, amount, self.company.as_of)
+        checks.append(Check("payment pattern (ML)", not pattern["anomalous"], pattern["reason"]))
+        if not (within_tx and within_day) or early or not bill.approved or pattern["anomalous"]:
             tier = Tier.T3_APPROVE
         return tier
 

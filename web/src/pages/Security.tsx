@@ -48,11 +48,13 @@ export default function Security() {
         </Panel>
       </div>
 
+      <MlModels />
+
       <Panel className="mt-4" title="Red-team suite"
         action={<button className="btn btn-primary" disabled={busy} onClick={async () => { setBusy(true); setReport(await api.redteam()); setBusy(false) }}>
           <Play size={14} /> {busy ? 'Running…' : 'Run attacks now'}</button>}>
         {!report ? (
-          <p className="text-ink3">Runs 23 attack scenarios — invoice-redirection fraud (incl. look-alike Unicode domains), hidden and non-English prompt injection, duplicate and split payments, data exfiltration, self-escalation, approval bypass, audit tampering invented numbers in model output, kill switch — each against a fresh copy of the real policy, sandbox and audit code.</p>
+          <p className="text-ink3">Runs 25 attack scenarios — invoice-redirection fraud (incl. look-alike Unicode domains), hidden and non-English prompt injection, duplicate and split payments, data exfiltration, self-escalation, approval bypass, audit tampering, invented numbers in model output, kill switch, paraphrased fraud only ML catches, padded bills — each against a fresh copy of the real policy, sandbox and audit code.</p>
         ) : (
           <>
             <div className="mb-3 text-[15px]"><span className="num font-semibold text-ok">{report.passed}/{report.total}</span> attacks handled as expected</div>
@@ -97,5 +99,59 @@ function KillSwitch({ paused }: { paused: boolean }) {
         {paused ? <><Play size={14} /> Resume autonomy</> : <><Pause size={14} /> Pause all autonomy</>}
       </button>
     </div>
+  )
+}
+
+function MlModels() {
+  const { data } = useLoad(api.ml)
+  const pctx = (v?: number) => (v == null ? '—' : `${Math.round(v * 1000) / 10}%`)
+  return (
+    <Panel className="mt-4" title="Machine-learning risk models">
+      <p className="-mt-2 mb-4 max-w-3xl text-[13px] text-ink2">
+        Three models trained locally on synthetic data (fixed seed). Each adds a signal on top of the rules — they can quarantine
+        or escalate, but can never make anything more permissive. Scores below are on held-out data the models never saw.
+      </p>
+      {!data ? <div className="text-ink3">Evaluating models…</div> : (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-xl border border-edge bg-canvas/50 p-4">
+            <div className="eyebrow">Inbound threat classifier</div>
+            <div className="serif mt-1 text-[16px] font-semibold">Fraud & prompt injection, EN / MS / ZH</div>
+            <div className="mt-1 text-[12px] text-ink3">TF-IDF character n-grams + logistic regression</div>
+            <table className="data mt-3 text-[12.5px]">
+              <thead><tr><th>Held-out paraphrases</th><th className="text-right">Caught</th><th className="text-right">False alarms</th></tr></thead>
+              <tbody>
+                {(['rules_only', 'model_only', 'rules_plus_model'] as const).map((k) => (
+                  <tr key={k} className={k === 'rules_plus_model' ? 'font-semibold' : ''}>
+                    <td>{k === 'rules_only' ? 'Rules only' : k === 'model_only' ? 'Model only' : 'Rules + model (live)'}</td>
+                    <td className="num text-right">{pctx(data.threat_classifier.detection_on_heldout[k].threat_recall)}</td>
+                    <td className="num text-right">{pctx(data.threat_classifier.detection_on_heldout[k].false_alarm_rate)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="rounded-xl border border-edge bg-canvas/50 p-4">
+            <div className="eyebrow">Payment anomaly detector</div>
+            <div className="serif mt-1 text-[16px] font-semibold">Unusual amount for this payee</div>
+            <div className="mt-1 text-[12px] text-ink3">Isolation Forest on each payee's own payment history</div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div><div className="num text-[24px] font-semibold text-ok">{pctx(data.payment_anomaly.detection_rate)}</div><div className="text-[12px] text-ink3">anomalies caught</div></div>
+              <div><div className="num text-[24px] font-semibold">{pctx(data.payment_anomaly.false_alarm_rate)}</div><div className="text-[12px] text-ink3">false alarms</div></div>
+            </div>
+            <p className="mt-3 text-[12px] text-ink3">An unusual payment is never auto-paid — it goes to your approvals with the reason.</p>
+          </div>
+          <div className="rounded-xl border border-edge bg-canvas/50 p-4">
+            <div className="eyebrow">Collection-risk predictor</div>
+            <div className="serif mt-1 text-[16px] font-semibold">Will this invoice be paid 30+ days late?</div>
+            <div className="mt-1 text-[12px] text-ink3">Gradient boosting on a simulated SME receivables portfolio</div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div><div className="num text-[24px] font-semibold text-ok">{data.collection_risk.roc_auc}</div><div className="text-[12px] text-ink3">ROC AUC</div></div>
+              <div><div className="num text-[24px] font-semibold">{data.collection_risk.brier}</div><div className="text-[12px] text-ink3">Brier score</div></div>
+            </div>
+            <p className="mt-3 text-[12px] text-ink3">Top drivers: customer's own delay history, days overdue.</p>
+          </div>
+        </div>
+      )}
+    </Panel>
   )
 }

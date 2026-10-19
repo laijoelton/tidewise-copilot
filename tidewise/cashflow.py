@@ -32,6 +32,11 @@ def nice(iso) -> str:
     return f"{d.day} {d:%b}"
 
 
+def _late_risk(company: Company, inv: Invoice) -> float:
+    from . import ml
+    return ml.collection_model().score(company, inv)
+
+
 def customer_payment_delays(company: Company) -> Dict[str, float]:
     delays = defaultdict(list)
     for inv in company.invoices:
@@ -100,6 +105,7 @@ def build_events(company: Company, horizon_days: int) -> Dict[str, Any]:
         entry = {
             "date": plan["expected"], "direction": "in", "amount_myr": to_base(inv.amount, inv.currency),
             "label": f"{inv.customer} — {inv.id}", "source": inv.id, "basis": plan["reason"],
+            "late_risk": _late_risk(company, inv),
         }
         if plan["doubtful"]:
             excluded.append({**entry, "why": f"{plan['days_overdue']} days overdue, well past this customer's norm"})
@@ -229,6 +235,7 @@ def alerts(company: Company, fc: Dict[str, Any]) -> List[Dict[str, Any]]:
                         "title": f"{inv.id} from {inv.customer} is {overdue} days overdue",
                         "detail": f"{inv.currency} {inv.amount:,.0f}; this customer normally pays "
                                   f"{delays.get(inv.customer, 0):g} days after due. "
+                                  f"ML collection risk: {_late_risk(company, inv):.0%} chance of 30+ days late. "
                                   + ("Excluded from the forecast as doubtful." if doubtful else "Send a reminder."),
                         "ref": inv.id})
 

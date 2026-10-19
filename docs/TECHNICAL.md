@@ -26,7 +26,8 @@ Covers: system architecture, core algorithms and security design. The [security 
 | Control | `tidewise/policy.py` | T0–T4 tiers, per-action checks, owner limits, provenance/taint, autonomy budget, kill switch, step-up. |
 | Execution | `tidewise/sandbox.py` | Sandbox bank: pay, FX, messages, financing, supplier terms, simulated forwarder. |
 | Assurance | `tidewise/audit.py` | Audit trail over the Merkle log: inclusion proofs, verification, export. |
-| | `tidewise/redteam.py` | 23 attack scenarios against the real code. |
+| | `tidewise/redteam.py` | 25 attack scenarios against the real code. |
+| Learning | `tidewise/ml.py` | Inbound threat classifier, payment anomaly detector, collection-risk predictor — signals that can only escalate. |
 | Interface | `api/main.py`, `web/` | FastAPI with two channels (conversation, owner); React 19 UI with 10 pages. |
 
 ### Request flow (one chat turn)
@@ -184,6 +185,34 @@ Per-action checks:
 - **Chaining.** Each sealed batch stores `prev_root`, so the batches form a chain.
 - **Verification.** `verify()` checks the chain and every record's inclusion proof. Any record's proof can be checked on its own, from the UI or `/api/audit/receipt/{id}`.
 
+### 3.11 Machine-learning risk models (`tidewise/ml.py`)
+
+The three models are trained locally on synthetic data with a fixed seed. Each **adds a signal** on top of the deterministic controls: it can quarantine or escalate, but it can never make anything more permissive. `python -m tidewise.ml` prints the held-out evaluation, which is also in `evidence/ml_report.json` and on the Security page.
+
+**1. Inbound threat classifier**
+- **Model:** TF-IDF character 2–5-grams plus multinomial logistic regression. Classes: `benign`, `payment_fraud`, `prompt_injection`, in English, Malay and Chinese. Character n-grams handle mixed scripts without tokenisers.
+- **Use in the guard:**
+  - threat probability ≥ 0.60 adds a critical `ml_threat` finding, which quarantines the message;
+  - ≥ 0.35 adds a warning.
+- **Honest test:** evaluated on **paraphrase templates never used in training**.
+
+  | Detector | Caught | False alarms |
+  |---|---|---|
+  | Rules only | 44% | 0% |
+  | Rules + model (live) | 96% | 1.3% |
+
+**2. Payment anomaly detector**
+- **Model:** an Isolation Forest per business, trained on that business's own outgoing payments. Features: the robust z-score of log-amount against that payee's history, log-amount, and days since the last payment.
+- **Use in the policy:** it runs as the `payment pattern (ML)` check in `pay_bill`. An anomalous amount, or fewer than 3 past payments to that payee, escalates T2 to T3, with the reason shown ("3.1× the typical RM 31,003 paid to …").
+- **Test:** on 240 normal payments and 240 injected anomalies (3–10× or 0.1–0.3× usual size), it catches 100% with 0.4% false alarms.
+
+**3. Collection-risk predictor**
+- **Model:** gradient boosting on a simulated SME receivables portfolio, predicting P(paid 30+ days after due). Features: the customer's own mean and standard deviation of delay, number of prior invoices, amount vs usual, days overdue, reminders sent, LC terms.
+- **Use:** the probability is attached to every forecast receipt (`late_risk`) and shown in overdue alerts.
+- **Test:** on an independent simulated portfolio, ROC AUC 0.88 and Brier score 0.135.
+
+**Limits.** The models are trained on synthetic data, so their numbers show the method works, not production accuracy. In deployment they would be retrained on the business's own history and monitored for drift. Because a model can only escalate, a model failure degrades to "more approvals", never "more autonomy".
+
 ## 4. LLM boundary
 
 - **Inputs:** the owner's message, plus structured and masked facts (forecast numbers, alert titles, plan, action outcomes). It never receives raw email or document text.
@@ -211,7 +240,7 @@ Hardening:
 
 ## 6. Testing
 
-`python run_tests.py` runs **58 tests**:
+`python run_tests.py` runs **68 tests**:
 - **`test_tidewise.py`:**
   - document checks, forecast, analysis and financing;
   - guard, policy and the agent loop end to end;
@@ -222,9 +251,10 @@ Hardening:
   - the supplier rule and the kill switch;
   - homoglyph, punycode, Malay and Chinese screening;
   - LLM grounding.
+- **`test_ml.py`:** held-out quality thresholds for all three models; demo inbox scores; a paraphrase quarantined by the model alone; a padded bill escalated; collection-risk ranking.
 - **`test_engine.py`:** extraction with evidence, placeholders, unreadable scans, reconciliation, the loader, the Merkle chain and tampering, and the rate limiter.
 
-`python -m tidewise.redteam` prints the 23 attack outcomes. `python scripts/generate_evidence.py` regenerates `evidence/`.
+`python -m tidewise.redteam` prints the 25 attack outcomes; `python -m tidewise.ml` prints the model evaluation. `python scripts/generate_evidence.py` regenerates `evidence/`.
 
 ## 7. Limitations and next steps
 

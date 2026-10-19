@@ -106,6 +106,7 @@ class ScanResult:
     findings: List[Finding] = field(default_factory=list)
     masked_body: str = ""
     hidden_text_removed: bool = False
+    ml: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -177,6 +178,16 @@ def scan(company: Company, msg: InboundMessage) -> ScanResult:
     visible = body
     for pat in HIDDEN_MARKUP:
         visible = re.sub(pat, "[hidden content removed]", visible, flags=re.S | re.I)
+    # 5. ML threat classifier (catches paraphrases the patterns above miss).
+    from . import ml
+    res.ml = ml.threat_model().score(body)
+    if res.ml["threat"] >= ml.QUARANTINE_AT:
+        findings.append(Finding("ml_threat", "critical",
+                                f"ML classifier: {res.ml['label'].replace('_', ' ')} (threat probability {res.ml['threat']:.0%})"))
+    elif res.ml["threat"] >= ml.REVIEW_AT:
+        findings.append(Finding("ml_threat", "warning",
+                                f"ML classifier: possible {res.ml['label'].replace('_', ' ')} ({res.ml['threat']:.0%}) — read carefully"))
+
     res.masked_body = mask(visible)
     res.hidden_text_removed = bool(hidden)
     if any(f.severity == "critical" for f in findings):

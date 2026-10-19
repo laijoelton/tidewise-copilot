@@ -1,0 +1,65 @@
+{
+  "threat_classifier": {
+    "detection_on_heldout": {
+      "rules_only": {
+        "threat_recall": 0.444,
+        "false_alarm_rate": 0.0
+      },
+      "model_only": {
+        "threat_recall": 0.963,
+        "false_alarm_rate": 0.013
+      },
+      "rules_plus_model": {
+        "threat_recall": 0.963,
+        "false_alarm_rate": 0.013
+      }
+    },
+    "test_set": "held-out paraphrase templates never seen in training (EN/MS/ZH)",
+    "n_test": 240,
+    "accuracy": 0.921,
+    "per_class_f1": {
+      "benign": 0.882,
+      "payment_fraud": 0.947,
+      "prompt_injection": 0.933
+    },
+    "threat_recall": 0.938,
+    "threat_precision": 0.943,
+    "confusion_matrix": [
+      [
+        71,
+        9,
+        0
+      ],
+      [
+        0,
+        80,
+        0
+      ],
+      [
+        10,
+        0,
+        70
+      ]
+    ]
+  },
+  "payment_anomaly": {
+    "test_set": "12 synthetic suppliers; 240 normal payments vs 240 injected anomalies (3-10x or 0.1-0.3x size)",
+    "detection_rate": 1.0,
+    "false_alarm_rate": 0.004
+  },
+  "collection_risk": {
+    "test_set": "independent simulated portfolio, 1251 open invoices, 457 paid 30+ days late",
+    "roc_auc": 0.878,
+    "brier": 0.135,
+    "feature_importance": {
+      "customer_mean_delay": 0.581,
+      "customer_delay_std": 0.075,
+      "prior_invoices": 0.011,
+      "amount_vs_usual": 0.046,
+      "days_overdue": 0.229,
+      "reminders_sent": 0.002,
+      "is_lc": 0.056
+    }
+  },
+  "note": "All models are trained on synthetic data with a fixed seed. Scores add signal; deterministic policy remains the final decision-maker."
+}

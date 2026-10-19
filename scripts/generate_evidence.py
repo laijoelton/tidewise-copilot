@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from tidewise import cashflow, redteam  # noqa: E402
+from tidewise import cashflow, ml, redteam  # noqa: E402
 from tidewise.agent import EVIDENCE_DIR, Workspace  # noqa: E402
 from tidewise.sandbox import SandboxBank  # noqa: E402
 
@@ -92,6 +92,7 @@ def main():
     (EVIDENCE_DIR / "forecast_before_after.json").write_text(json.dumps({"before": before, "after": after}, indent=2), encoding="utf-8")
     ws.audit.export(EVIDENCE_DIR / "audit_trail.json")
     rep = redteam.run(write_evidence=True)
+    (EVIDENCE_DIR / "ml_report.json").write_text(json.dumps(ml.evaluate_all(), indent=2, ensure_ascii=False), encoding="utf-8")
 
     print(f"sandbox operations: {len(ws.sandbox.log)}  ->  {ops.relative_to(ROOT)}")
     print(f"audit: {v['records']} records, {v['batches']} batches, chain intact={v['chain_intact']}")
