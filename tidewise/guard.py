@@ -18,6 +18,7 @@ and labels it with a trust level that travels with anything derived from it
 """
 
 import re
+import unicodedata
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List
 
@@ -34,12 +35,21 @@ INJECTION_PATTERNS = [
     (r"(do not|don't|never) (tell|mention|inform|notify)", "asks to hide activity from the user"),
     (r"\b(approve|execute|transfer|send|wire|remit)\b[^.]{0,60}\b(all|immediately|now|without)\b", "pushes an immediate money movement"),
     (r"system prompt|developer mode|jailbreak", "references model internals"),
+    # Malay / Indonesian
+    (r"abaikan (semua )?(arahan|perintah|instruksi)", "asks the agent to ignore its instructions (Malay/Indonesian)"),
+    (r"jangan (beritahu|maklumkan|bagitahu|kasih tahu)", "asks to hide activity from the user (Malay/Indonesian)"),
+    # Chinese
+    (r"(忽略|无视|忽视).{0,6}(之前|以上|先前)?.{0,4}(指令|指示|规则)", "asks the agent to ignore its instructions (Chinese)"),
+    (r"(不要|别|勿).{0,4}(告诉|通知|透露)", "asks to hide activity from the user (Chinese)"),
+    (r"(立即|马上).{0,8}(转账|付款|汇款)", "pushes an immediate money movement (Chinese)"),
 ]
 HIDDEN_MARKUP = [r"<!--.*?-->", r"<[^>]*style=[\"'][^\"']*(display:\s*none|font-size:\s*0)[^>]*>.*?</[^>]+>", r"[​-‏⁠]"]
 BANK_CHANGE_PATTERNS = [
     r"(new|updated|changed?|different)\s+(bank|account|banking)\s*(details|account|information|no)?",
     r"(remit|pay|transfer|send)\b.{0,80}\b(to|into)\s+(our|the)?\s*new\s+account",
     r"account (is )?(suspended|frozen|closed|under audit)",
+    r"akaun (bank )?(baru|yang baru)|butiran bank (baru|dikemas ?kini)",       # Malay
+    r"(新|更改|变更).{0,4}(账户|帐户|银行账号|收款账户)",                       # Chinese
 ]
 ACCOUNT_NUMBER = re.compile(r"\b\d{4}[- ]?\d{4}[- ]?\d{4,6}\b")
 IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){11,30}\b")
@@ -59,6 +69,21 @@ def _edit_distance(a: str, b: str) -> int:
             cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
         prev = cur
     return prev[-1]
+
+
+# Characters that render like Latin letters (Cyrillic, Greek, digits) — the
+# classic way to fake a domain such as "hutanlestari.example" with a Cyrillic "а".
+CONFUSABLES = str.maketrans({
+    "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y", "і": "i", "ј": "j", "ѕ": "s",
+    "ԁ": "d", "һ": "h", "ӏ": "l", "к": "k", "м": "m", "т": "t", "в": "b", "н": "h",
+    "α": "a", "ο": "o", "ρ": "p", "ε": "e", "ι": "i", "κ": "k", "ν": "v", "τ": "t", "υ": "u",
+    "0": "o", "1": "l",
+})
+
+
+def skeleton(domain: str) -> str:
+    d = unicodedata.normalize("NFKC", domain.lower()).translate(CONFUSABLES)
+    return d.replace("rn", "m").replace("vv", "w")
 
 
 def _squash(domain: str) -> str:
@@ -102,7 +127,12 @@ def scan(company: Company, msg: InboundMessage) -> ScanResult:
     findings = res.findings
 
     # 1. Sender verification
-    if domain in registry:
+    homoglyph = next((k for k in registry if skeleton(domain) == skeleton(k) and domain != k), None)
+    if homoglyph or domain.startswith("xn--") or ".xn--" in domain or not domain.isascii():
+        target = registry.get(homoglyph, "a registered counterparty") if homoglyph else "a registered counterparty"
+        findings.append(Finding("sender_homoglyph", "critical",
+                                f"'{domain}' uses look-alike or non-Latin characters to imitate {target}"))
+    elif domain in registry:
         res.counterparty = registry[domain]
         res.trust = "verified"
     else:

@@ -21,7 +21,7 @@ import time
 import uuid
 from datetime import date
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from . import analysis, cashflow, financing, guard, trade_docs
 from .audit import AuditTrail
@@ -54,6 +54,75 @@ ROUTES = [
     ("receivables", r"\b(owe|owed|receivable|overdue|unpaid invoice|customers? (who )?(haven't|have not) paid)\b"),
     ("bills", r"\b(bills?|payables?|suppliers?|due)\b"),
 ]
+
+
+def _rm(v: float) -> str:
+    return f"RM {v:,.0f}"
+
+
+def _d(iso: str) -> str:
+    d = date.fromisoformat(iso)
+    return f"{d.day} {d:%b}"
+
+
+QUARANTINE_REASON = {
+    "sender_lookalike": "sender imitates a registered counterparty",
+    "sender_homoglyph": "sender domain uses look-alike characters",
+    "payment_redirect": "asks to pay bank details not on file",
+    "prompt_injection": "contains instructions aimed at the AI",
+}
+
+
+def _why_quarantined(m: Dict[str, Any]) -> str:
+    reasons = []
+    for f in m["findings"]:
+        r = QUARANTINE_REASON.get(f["check"])
+        if r and r not in reasons and f["severity"] == "critical":
+            reasons.append(r)
+    return f"{m['message_id']} from {m['sender']} quarantined — " + "; ".join(reasons) + ". Nothing in it will be acted on."
+
+
+def parse_whatif(text: str, company: Company) -> Optional[Dict[str, Any]]:
+    """Turns "what if Harbour pays 30 days late / sales drop 20% / I hire for
+    RM 9,000 a month / USD falls 5% / we lose Vanderhoek" into a scenario.
+    Only the owner's own words are parsed; nothing here executes anything."""
+    t = text.lower()
+    if not re.search(r"\bwhat (if|happens if|would happen if)\b|\bsimulate\b|\bscenario\b", t):
+        return None
+    customers = {i.customer for i in company.invoices}
+
+    def who(fragment: str) -> Optional[str]:
+        if re.search(r"\b(everyone|everybody|all customers|customers|buyers)\b", fragment):
+            return "*"
+        for c in customers:
+            if c.split()[0].lower() in fragment:
+                return c
+        return None
+
+    sc: Dict[str, Any] = {}
+    m = re.search(r"(.+?)\s+(?:pays?|paid|is|are)\s+(\d+)\s+days?\s+(late|later|early|earlier)", t)
+    if m and who(m.group(1)):
+        days = int(m.group(2)) * (-1 if m.group(3).startswith("early") else 1)
+        sc["customer_delay"] = {"customer": who(m.group(1)), "days": days}
+    m = re.search(r"\b(?:lose|lost|loses|losing)\s+(.+?)(?:$|[,.?!]|\s+and\b)", t) or \
+        re.search(r"(.+?)\s+(?:goes bust|go bust|goes bankrupt|never pays|defaults)", t)
+    if m:
+        c = who(m.group(1))
+        if c and c != "*":
+            sc["lose_customer"] = c
+    m = re.search(r"sales\s+(drop|fall|fell|decrease|decline|go down|are down|rise|grow|increase|go up|are up)\w*"
+                  r"\s+(?:by\s+)?(\d+(?:\.\d+)?)\s*%", t)
+    if m:
+        down = m.group(1).startswith(("drop", "fall", "fell", "decr", "decl", "go down", "are down"))
+        sc["sales_change_pct"] = float(m.group(2)) * (-1 if down else 1)
+    m = re.search(r"rm\s*([\d,]+(?:\.\d+)?)\s*(k\b)?\s*(?:a|per|each|/)\s*month", t)
+    if m:
+        amt = float(m.group(1).replace(",", ""))
+        sc["extra_monthly_cost"] = amt * 1000 if m.group(2) else amt
+    m = re.search(r"(?:usd|dollar|us\$)\s+(drops?|falls?|weakens?|rises?|strengthens?|gains?)\s+(?:by\s+)?(\d+(?:\.\d+)?)\s*%", t)
+    if m:
+        sc["usd_change_pct"] = float(m.group(2)) * (-1 if m.group(1).startswith(("drop", "fall", "weak")) else 1)
+    return sc or None
 
 
 def _key(action: Action, as_of: date) -> str:
@@ -102,16 +171,21 @@ class Agent:
         steps: List[Dict[str, Any]] = []
         ws.audit.record("owner_message", "owner", {"text": guard.mask(text)})
 
-        handled = self._owner_commands(text, steps)
-        intents = [] if handled else self._route(text)
         facts: Dict[str, Any] = {}
+        scenario = parse_whatif(text, self.ws.company)
+        if scenario:
+            facts["whatif"] = self._do_whatif(steps, scenario)
+            handled = True
+        else:
+            handled = self._owner_commands(text, steps)
+        intents = [] if handled else self._route(text)
         for intent in intents:
             facts[intent] = getattr(self, f"_do_{intent}")(steps)
 
         if not handled and not intents:
             reply = ("I can forecast your cash, check trade documents, screen your inbox, analyse the business, "
-                     "match financing, send reminders and pay approved bills within your limits. "
-                     "Try “what should I do this week?”")
+                     "match financing, run what-if scenarios, send reminders and pay approved bills within your limits. "
+                     "Try “what should I do this week?” or “what if Harbour pays 30 days late?”")
         else:
             reply = self._template_reply(intents, facts, steps)
             if ws.llm and ws.llm.available:
@@ -261,6 +335,11 @@ class Agent:
     def _gap(self) -> float:
         return cashflow.forecast(self.ws.company)["funding_gap"]
 
+    def _do_whatif(self, steps, scenario):
+        r = cashflow.whatif(self.ws.company, scenario)
+        return self._read("what_if", steps, "; ".join(r["changes"])
+                          + f" → gap RM {r['baseline']['funding_gap']:,.0f} → RM {r['whatif']['funding_gap']:,.0f}", r)
+
     def _do_forecast(self, steps):
         fc = cashflow.forecast(self.ws.company)
         s = (f"Opening RM {fc['opening_balance']:,.0f}; low point RM {fc['trough']['balance']:,.0f} on "
@@ -317,9 +396,7 @@ class Agent:
         out: Dict[str, Any] = {"inbox": self._do_inbox(steps)}
         for scan in self.ws.scans.values():
             if scan.trust == "quarantined":
-                steps.append({"kind": "note", "text": f"{scan.message_id} from {scan.sender} quarantined: "
-                                                      + "; ".join(sorted({f.detail for f in scan.findings if f.severity == 'critical'}))
-                                                      + ". Nothing in it will be acted on."})
+                steps.append({"kind": "note", "text": _why_quarantined(scan.to_dict())})
 
         out["documents"] = self._do_documents(steps)
         for r in out["documents"]:
@@ -346,7 +423,7 @@ class Agent:
         if m:
             for p in m["recommended_plan"]:
                 if p["id"] == "SUPTERMS":
-                    bill = next(b for b in c.open_bills() if b.payee_id == "PAY-HUTAN")
+                    bill = financing.supplier_extension_candidate(c)[0]
                     self.propose(Action("request_supplier_extension", {"bill_id": bill.id, "days": 30, "surcharge": 0.015},
                                         "books", rationale=f"cheapest on-time option: moves RM {bill.amount:,.0f} past the gap "
                                                            f"for ~RM {p['cost']:,.0f}"), steps)
@@ -430,6 +507,10 @@ class Agent:
             return f"Apply for {name}: RM {float(p['amount']):,.0f}"
         if a.type == "fx_convert":
             return f"Convert USD {float(p['usd']):,.0f} to MYR"
+        if a.type == "send_reminder":
+            return f"Send payment reminder for {p.get('invoice_id')} to {p.get('to')}"
+        if a.type == "send_amendment_request":
+            return f"Ask the forwarder ({p.get('to')}) to amend the B/L for {p.get('shipment_id')}"
         return a.type
 
     # -- replies ------------------------------------------------------------------------
@@ -454,63 +535,87 @@ class Agent:
         return out
 
     def _template_reply(self, intents, facts, steps) -> str:
-        lines: List[str] = []
+        out: List[str] = []
+
+        def section(title: str, items: List[str]) -> None:
+            if items:
+                out.append(f"{title}\n" + "\n".join(f"• {i}" for i in items))
+
+        wi = facts.get("whatif")
+        if wi:
+            b, w = wi["baseline"], wi["whatif"]
+            out.append(f"What if {', '.join(wi['changes'])}: lowest point {_rm(b['trough']['balance'])} "
+                       f"({_d(b['trough']['date'])}) → {_rm(w['trough']['balance'])} ({_d(w['trough']['date'])}).")
+            items = [f"Funding gap {_rm(b['funding_gap'])} → {_rm(w['funding_gap'])}",
+                     f"Balance in 13 weeks {_rm(b['closing'])} → {_rm(w['closing'])}"]
+            if w["first_buffer_breach"] and w["first_buffer_breach"] != b["first_buffer_breach"]:
+                items.append(f"You'd first drop below your floor on {_d(w['first_buffer_breach'])}")
+            section("Impact", items)
+            out.append("Nothing was changed in your books — this is a simulation.")
+
         fc = facts.get("forecast") or (facts.get("autopilot") or {}).get("forecast")
         if fc:
             if fc["funding_gap"] > 0:
-                lines.append(f"Cash dips to RM {fc['trough']['balance']:,.0f} on {fc['trough']['date']} — "
-                             f"RM {fc['funding_gap']:,.0f} below your RM {fc['cash_buffer']:,.0f} floor.")
+                out.append(f"Cash dips to {_rm(fc['trough']['balance'])} on {_d(fc['trough']['date'])} — "
+                           f"{_rm(fc['funding_gap'])} below your {_rm(fc['cash_buffer'])} floor.")
             else:
-                lines.append(f"Cash stays above your RM {fc['cash_buffer']:,.0f} floor for the next 13 weeks "
-                             f"(low point RM {fc['trough']['balance']:,.0f}).")
-            crit = [a for a in fc["alerts"] if a["code"] == "LC_DISCREPANCY"]
-            if crit:
-                lines.append("Why: " + crit[0]["title"] + ".")
+                out.append(f"Cash stays above your {_rm(fc['cash_buffer'])} floor for the next 13 weeks "
+                           f"(low point {_rm(fc['trough']['balance'])} on {_d(fc['trough']['date'])}).")
+            section("Why", [a["title"] for a in fc["alerts"] if a["code"] in ("LC_DISCREPANCY", "DOUBTFUL_RECEIVABLE")])
         if facts.get("health"):
-            lines.append(" · ".join(i["title"] for i in facts["health"]["insights"]))
+            section("Business health", [i["title"] for i in facts["health"]["insights"]])
         docs = facts.get("documents")
         if docs:
-            for r in docs:
-                for d in r["discrepancies"]:
-                    lines.append(f"{r['shipment_id']}: {d['label']} — B/L {d['bl_value']} vs SI {d['si_value']} "
-                                 f"(SI line {d['si_evidence']['line']}, B/L line {d['bl_evidence']['line']}).")
-            if not any(r["discrepancies"] for r in docs):
-                lines.append("All trade documents agree.")
+            items = [f"{r['shipment_id']}: {d['label']} — B/L {d['bl_display']} vs SI {d['si_display']} "
+                     f"(SI line {d['si_evidence']['line']}, B/L line {d['bl_evidence']['line']})"
+                     for r in docs for d in r["discrepancies"]]
+            if items:
+                section("Document discrepancies", items)
+            else:
+                out.append("All trade documents agree.")
         fin = facts.get("financing")
         if fin and "autopilot" not in intents:
-            lines.append("Best plan: " + " + ".join(f"{p['name']} RM {p['amount']:,.0f} (≈RM {p['cost']:,.0f})"
-                                                     for p in fin["recommended_plan"]) + ".")
+            section(f"Cheapest way to cover {_rm(fin['need'])} by {_d(fin['need_by'])}",
+                    [f"{p['name']}: {_rm(p['amount'])}, est. cost {_rm(p['cost'])}, funds by {_d(p['funds_by'])}"
+                     for p in fin["recommended_plan"]])
+        elif "financing" in facts and fin is None:
+            out.append("No funding gap in the next 13 weeks — no need to borrow.")
         if facts.get("inbox") and "autopilot" not in intents:
             q = [m for m in facts["inbox"] if m["trust"] == "quarantined"]
-            lines.append(f"{len(q)} message(s) quarantined." if q else "Inbox is clean.")
+            if q:
+                section("Quarantined", [_why_quarantined(m) for m in q])
+            else:
+                out.append("Inbox is clean.")
         if facts.get("receivables"):
             od = [r for r in facts["receivables"] if r["days_overdue"]]
-            lines.append(f"{len(facts['receivables'])} open invoices, {len(od)} overdue: "
-                         + ", ".join(f"{r['id']} ({r['days_overdue']}d)" for r in od) + ".")
+            section(f"{len(facts['receivables'])} open invoices, {len(od)} overdue",
+                    [f"{r['id']} {r['customer']} — {r['currency']} {r['amount']:,.0f}, {r['days_overdue']} days late" for r in od])
         if facts.get("bills"):
-            lines.append("Next bills: " + ", ".join(f"{b['id']} {b['payee']} RM {b['amount']:,.0f} due {b['due']}"
-                                                    for b in facts["bills"][:4]) + ".")
+            section("Next bills", [f"{b['id']} {b['payee']} — {_rm(b['amount'])} due {_d(b['due'])}" for b in facts["bills"][:5]])
 
         actions = [s for s in steps if s["kind"] == "action"]
-        done = [s for s in actions if s["decision"]["outcome"] == "auto" and s.get("receipt")]
-        waiting = [s for s in actions if s["decision"]["outcome"] == "needs_approval"]
-        blocked = [s for s in actions if s["decision"]["outcome"] == "blocked"]
-        if done:
-            lines.append(f"Done on my own ({len(done)}): " + "; ".join(self._label(s) for s in done) + ".")
-        if waiting:
-            lines.append(f"Waiting for your approval ({len(waiting)}): " + "; ".join(self._label(s) for s in waiting) + ".")
-        if blocked:
-            lines.append("Refused: " + "; ".join(f"{self._label(s)} — {s['decision']['reasons'][0]}" for s in blocked) + ".")
-        lines += [s["text"] for s in steps if s["kind"] == "note"]
-        return "\n".join(lines)
+        section("Done on my own", [self._label(s) for s in actions if s["decision"]["outcome"] == "auto" and s.get("receipt")])
+        section("Waiting for your approval", [self._label(s) for s in actions if s["decision"]["outcome"] == "needs_approval"])
+        section("Refused", [f"{self._label(s)} — {s['decision']['reasons'][0]}" for s in actions
+                            if s["decision"]["outcome"] == "blocked"])
+        section("Heads-up", [s["text"] for s in steps if s["kind"] == "note"])
+        return "\n\n".join(out)
 
     def _label(self, s: Dict[str, Any]) -> str:
-        p = s["params"]
+        c, p = self.ws.company, s["params"]
+        done = s["decision"]["outcome"] == "auto" and s.get("receipt")
+        if s["type"] == "pay_bill" and c.bill(p.get("bill_id", "")):
+            b = c.bill(p["bill_id"])
+            return f"{'paid' if done else 'pay'} {c.payee(b.payee_id).name} {_rm(b.amount)} ({b.id})"
+        if s["type"] == "request_supplier_extension" and c.bill(p.get("bill_id", "")):
+            b = c.bill(p["bill_id"])
+            return f"ask {c.payee(b.payee_id).name} to move {b.id} ({_rm(b.amount)}) by {p.get('days', 30)} days"
+        if s["type"] == "apply_financing":
+            name = next((x.name for x in financing.CATALOGUE if x.id == p.get("product_id")), p.get("product_id"))
+            return f"apply for {name}: {_rm(float(p.get('amount', 0)))}"
         return {
-            "send_reminder": lambda: f"reminded {p.get('to')} about {p.get('invoice_id')}",
-            "send_amendment_request": lambda: f"asked the forwarder to amend the B/L for {p.get('shipment_id')}",
+            "send_reminder": lambda: f"{'reminded' if done else 'remind'} {p.get('to')} about {p.get('invoice_id')}",
+            "send_amendment_request": lambda: f"{'asked' if done else 'ask'} the forwarder to amend the B/L for {p.get('shipment_id')}",
+            "fx_convert": lambda: f"convert USD {float(p.get('usd', 0)):,.0f}",
             "pay_bill": lambda: f"pay {p.get('bill_id')}",
-            "fx_convert": lambda: f"convert USD {p.get('usd')}",
-            "request_supplier_extension": lambda: f"ask supplier to move {p.get('bill_id')} by {p.get('days')} days",
-            "apply_financing": lambda: f"apply for {p.get('product_id')} RM {float(p.get('amount', 0)):,.0f}",
         }.get(s["type"], lambda: s["type"].replace("_", " "))()

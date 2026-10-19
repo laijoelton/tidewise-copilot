@@ -126,10 +126,13 @@ def build_events(company: Company, horizon_days: int) -> Dict[str, Any]:
 
 
 def forecast(company: Company, weeks: int = 13) -> Dict[str, Any]:
+    built = build_events(company, weeks * 7)
+    return _project(company, built, company.cash_myr(), weeks)
+
+
+def _project(company: Company, built: Dict[str, Any], opening: float, weeks: int) -> Dict[str, Any]:
     horizon = weeks * 7
-    built = build_events(company, horizon)
     events = built["events"]
-    opening = company.cash_myr()
     buffer = company.cash_buffer_myr
 
     # Daily running balance, so breach dates are exact rather than per-week.
@@ -205,7 +208,7 @@ def alerts(company: Company, fc: Dict[str, Any]) -> List[Dict[str, Any]]:
             d = chk["discrepancies"][0]
             out.append({"severity": "critical", "code": "LC_DISCREPANCY",
                         "title": f"{d['label']} mismatch on {s.id} puts {inv.currency} {inv.amount:,.0f} at risk",
-                        "detail": f"Draft B/L says {d['bl_value']}, shipping instruction says {d['si_value']}. "
+                        "detail": f"Draft B/L says {d['bl_display']}, shipping instruction says {d['si_display']}. "
                                   f"The bank will refuse the LC presentation; payment slips ~{chk['expected_delay_days']} days "
                                   f"unless the B/L is amended before {(s.lc_terms or {}).get('presentation_deadline', 'presentation')}.",
                         "ref": s.id})
@@ -242,3 +245,107 @@ def alerts(company: Company, fc: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     order = {"critical": 0, "warning": 1, "info": 2}
     return sorted(out, key=lambda a: order[a["severity"]])
+
+
+# -- what-if simulator ---------------------------------------------------------------
+SCENARIO_KEYS = {"customer_delay", "lose_customer", "sales_change_pct", "extra_monthly_cost", "usd_change_pct"}
+
+
+def whatif(company: Company, scenario: Dict[str, Any], weeks: int = 13) -> Dict[str, Any]:
+    """Re-runs the forecast under a hypothetical, without touching the books.
+
+    scenario keys (all optional):
+      customer_delay      {"customer": name or "*", "days": int}   pay later (or earlier if negative)
+      lose_customer       name                                      their open invoices never arrive
+      sales_change_pct    e.g. -20                                  projected new sales change
+      extra_monthly_cost  e.g. 9000                                 new monthly outgoing (hire, rent...)
+      usd_change_pct      e.g. -5                                   USD vs MYR move (balances + receivables)
+    """
+    unknown = set(scenario) - SCENARIO_KEYS
+    if unknown:
+        raise ValueError(f"unknown scenario keys: {sorted(unknown)}")
+    horizon = weeks * 7
+    end = company.as_of + timedelta(days=horizon - 1)
+    built = build_events(company, horizon)
+    by_id = {i.id: i for i in company.invoices}
+    changes: List[str] = []
+    fx = 1 + float(scenario.get("usd_change_pct", 0)) / 100
+
+    events = []
+    for e in built["events"]:
+        e = dict(e)
+        inv = by_id.get(e["source"])
+        if inv is not None:
+            lost = scenario.get("lose_customer")
+            if lost and inv.customer.lower().startswith(str(lost).lower()):
+                continue
+            d = scenario.get("customer_delay")
+            if d and (d.get("customer") == "*" or inv.customer.lower().startswith(str(d.get("customer", "")).lower())):
+                e["date"] = e["date"] + timedelta(days=int(d["days"]))
+                if e["date"] > end:
+                    continue
+            if inv.currency == "USD":
+                e["amount_myr"] = round(e["amount_myr"] * fx, 2)
+        if e.get("projected") and e["direction"] == "in":
+            e["amount_myr"] = round(e["amount_myr"] * (1 + float(scenario.get("sales_change_pct", 0)) / 100), 2)
+        events.append(e)
+
+    extra = float(scenario.get("extra_monthly_cost", 0))
+    if extra:
+        for on in _recurring_dates(28, company.as_of, end):
+            events.append({"date": on, "direction": "out", "amount_myr": extra, "label": "What-if: new monthly cost",
+                           "source": "whatif", "basis": "scenario"})
+    events.sort(key=lambda e: (e["date"], e["direction"] == "out"))
+
+    if scenario.get("customer_delay"):
+        d = scenario["customer_delay"]
+        changes.append(f"{'everyone' if d.get('customer') == '*' else d.get('customer')} pays {d['days']} days later")
+    if scenario.get("lose_customer"):
+        changes.append(f"{scenario['lose_customer']}'s open invoices never arrive")
+    if scenario.get("sales_change_pct"):
+        changes.append(f"new sales {float(scenario['sales_change_pct']):+g}%")
+    if extra:
+        changes.append(f"extra RM {extra:,.0f} a month")
+    if fx != 1:
+        changes.append(f"USD {float(scenario['usd_change_pct']):+g}% vs MYR")
+
+    opening = sum(to_base(a.balance, a.currency) * (fx if a.currency == "USD" else 1) for a in company.accounts)
+    base = forecast(company, weeks)
+    alt = _project(company, {**built, "events": events}, round(opening, 2), weeks)
+
+    def brief(f):
+        return {k: f[k] for k in ("trough", "funding_gap", "first_buffer_breach", "first_negative")} |                {"closing": f["weekly"][-1]["closing"]}
+
+    return {"scenario": scenario, "changes": changes, "baseline": brief(base), "whatif": brief(alt),
+            "delta_trough": round(alt["trough"]["balance"] - base["trough"]["balance"], 2),
+            "delta_gap": round(alt["funding_gap"] - base["funding_gap"], 2),
+            "weekly_baseline": base["weekly"], "weekly_whatif": alt["weekly"]}
+
+
+def root_cause_chain(company: Company, fc: Dict[str, Any], plan: Dict[str, Any] = None) -> List[Dict[str, str]]:
+    """The causal story behind a shortfall, as steps an owner can follow:
+    document problem -> receivable delayed -> cash below floor -> the fix."""
+    if fc["funding_gap"] <= 0:
+        return []
+    chain: List[Dict[str, str]] = []
+    for e in fc["events"]:
+        if "LC refusal risk" in e.get("basis", ""):
+            inv = company.invoice(e["source"])
+            chk = check_shipment(company, inv.shipment_id)
+            d = chk["discrepancies"][0]
+            chain.append({"kind": "cause", "title": f"{d['label']} typo on {inv.shipment_id}",
+                          "detail": f"B/L {d['bl_display']} vs shipping instruction {d['si_display']}"})
+            chain.append({"kind": "effect", "title": f"Bank refuses the LC presentation",
+                          "detail": f"{inv.id} ({inv.currency} {inv.amount:,.0f}) slips to {e['date']}"})
+            break
+    doubtful = fc["excluded"]
+    if doubtful:
+        chain.append({"kind": "effect", "title": f"{len(doubtful)} doubtful receivable(s) left out",
+                      "detail": ", ".join(x["source"] for x in doubtful)})
+    chain.append({"kind": "impact", "title": f"Cash below your floor from {fc['first_buffer_breach']}",
+                  "detail": f"low point RM {fc['trough']['balance']:,.0f} on {fc['trough']['date']}; gap RM {fc['funding_gap']:,.0f}"})
+    if plan and plan.get("recommended_plan"):
+        chain.append({"kind": "fix", "title": "Cheapest on-time fix",
+                      "detail": " + ".join(f"{x['name']} RM {x['amount']:,.0f}" for x in plan["recommended_plan"])
+                                + f" (≈RM {plan['plan_total_cost']:,.0f})"})
+    return chain

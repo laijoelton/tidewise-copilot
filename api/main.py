@@ -69,6 +69,18 @@ class ApproveIn(BaseModel):
     confirm_amount: Optional[float] = None
 
 
+class WhatIfIn(BaseModel):
+    customer_delay: Optional[dict] = None
+    lose_customer: Optional[str] = Field(default=None, max_length=80)
+    sales_change_pct: Optional[float] = Field(default=None, ge=-100, le=200)
+    extra_monthly_cost: Optional[float] = Field(default=None, ge=0, le=10_000_000)
+    usd_change_pct: Optional[float] = Field(default=None, ge=-50, le=50)
+
+
+class AutonomyIn(BaseModel):
+    paused: bool
+
+
 class SimulateIn(BaseModel):
     shipment_id: str = Field(pattern=r"^SHP-\d{3}$")
 
@@ -95,6 +107,8 @@ def overview():
         "pending_approvals": len(ws.agent.pending()),
         "audit": ws.audit.verify(),
         "llm": bool(ws.llm and ws.llm.available),
+        "paused": ws.policy.paused,
+        "chain": cashflow.root_cause_chain(c, fc, financing.match_for_forecast(c, fc)),
     }
 
 
@@ -149,7 +163,7 @@ def ledger():
 
 @app.get("/api/policy")
 def policy():
-    return {"limits": ws.policy.limits.__dict__,
+    return {"limits": ws.policy.limits.__dict__, "paused": ws.policy.paused,
             "actions": [{"type": t, "tier": int(v), "label": TIER_LABEL[int(v)]} for t, v in BASE_TIER.items()]}
 
 
@@ -210,6 +224,26 @@ def forwarder_reply(body: SimulateIn):
     ws.audit.record("external_event", "forwarder", {"shipment_id": body.shipment_id, "ref": r["ref"]})
     ws.audit.seal()
     return {"receipt": r, "check": trade_docs.check_shipment(ws.company, body.shipment_id)}
+
+
+@app.post("/api/whatif")
+def what_if(body: WhatIfIn):
+    scenario = {k: v for k, v in body.model_dump().items() if v not in (None, 0, "")}
+    if not scenario:
+        raise HTTPException(422, "describe at least one change")
+    try:
+        return cashflow.whatif(ws.company, scenario)
+    except (ValueError, KeyError, TypeError) as e:
+        raise HTTPException(422, str(e))
+
+
+@app.post("/api/autonomy")
+def autonomy(body: AutonomyIn, who: str = Depends(require_owner)):
+    """Owner kill switch: when paused, nothing executes without approval."""
+    ws.policy.paused = body.paused
+    ws.audit.record("autonomy_paused" if body.paused else "autonomy_resumed", who, {})
+    ws.audit.seal()
+    return {"paused": ws.policy.paused}
 
 
 @app.post("/api/redteam")

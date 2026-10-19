@@ -101,10 +101,19 @@ class Policy:
     def __init__(self, company: Company, limits: Optional[Limits] = None):
         self.company = company
         self.limits = limits or Limits()
-        self.auto_paid_today = 0.0
+        self._auto_paid: Dict[str, float] = {}        # ISO date -> RM auto-paid that day
         self.reminder_log: Dict[str, Any] = {}       # invoice id -> date last reminded
         self.quarantined_sources: set = set()
         self.auto_actions_this_turn = 0
+        self.paused = False                          # owner's kill switch: no autonomous actions at all
+
+    @property
+    def auto_paid_today(self) -> float:
+        return self._auto_paid.get(self.company.as_of.isoformat(), 0.0)
+
+    @auto_paid_today.setter
+    def auto_paid_today(self, value: float) -> None:
+        self._auto_paid[self.company.as_of.isoformat()] = value
 
     # -- the one public entry point ------------------------------------------------
     def evaluate(self, action: Action) -> Decision:
@@ -126,6 +135,10 @@ class Policy:
             tier = max(tier, Tier.T3_APPROVE)
         else:
             checks.append(Check("provenance", True, f"parameters come from {action.provenance}"))
+
+        if self.paused and tier <= Tier.T2_EXECUTE and action.type != "read":
+            checks.append(Check("autonomy paused", True, "owner paused autonomous actions — everything waits for approval"))
+            tier = Tier.T3_APPROVE
 
         if tier <= Tier.T2_EXECUTE and action.type != "read":
             budget_ok = self.auto_actions_this_turn < self.limits.max_auto_actions_per_turn

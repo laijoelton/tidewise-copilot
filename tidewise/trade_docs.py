@@ -46,6 +46,10 @@ def check_shipment(company: Company, shipment_id: str) -> Dict[str, Any]:
     verdict = _reconciler.reconcile(si, bl)
 
     discrepancies = []
+
+    def show(v):
+        return f"{v:,.0f}" if isinstance(v, float) and v.is_integer() else str(v)
+
     for f in verdict["defect_fields"]:
         si_ev, bl_ev = si.evidence_spans.get(f, {}), bl.evidence_spans.get(f, {})
         discrepancies.append({
@@ -53,6 +57,8 @@ def check_shipment(company: Company, shipment_id: str) -> Dict[str, Any]:
             "label": FIELD_LABELS.get(f, f),
             "si_value": getattr(si, f),
             "bl_value": getattr(bl, f),
+            "si_display": show(getattr(si, f)),
+            "bl_display": show(getattr(bl, f)),
             "si_evidence": {"line": si_ev.get("line_number"), "text": si_ev.get("snippet")},
             "bl_evidence": {"line": bl_ev.get("line_number"), "text": bl_ev.get("snippet")},
         })
@@ -79,8 +85,8 @@ def draft_amendment_request(company: Company, shipment_id: str) -> Dict[str, Any
     shipment = company.shipment(shipment_id)
     if not result["discrepancies"]:
         return {"shipment_id": shipment_id, "needed": False}
-    lines = [f"- {d['label']}: draft B/L shows \"{d['bl_value']}\"; our shipping instruction "
-             f"(line {d['si_evidence']['line']}) states \"{d['si_value']}\"." for d in result["discrepancies"]]
+    lines = [f"- {d['label']}: draft B/L shows {d['bl_display']}; our shipping instruction "
+             f"(line {d['si_evidence']['line']}) states {d['si_display']}." for d in result["discrepancies"]]
     body = (
         f"Dear PortLink team,\n\n"
         f"Please amend draft B/L for {shipment.vessel} (our ref {shipment_id}) before issuing the original:\n"

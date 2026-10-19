@@ -55,7 +55,7 @@ CATALOGUE: List[Product] = [
     Product("LCDISC", "LC bill discounting", "Your trade bank (fictional)", "lc", (1, 2),
             "Bank buys the complying LC presentation at a discount; cheapest money an exporter can get.",
             worst_band="E", advance_rate=0.95, annual_rate=0.068, upfront_fee=0.0025),
-    Product("SUPTERMS", "Supplier terms extension", "Hutan Lestari Timber (your supplier)", "supplier", (2, 5),
+    Product("SUPTERMS", "Supplier terms extension", "Your long-standing supplier", "supplier", (2, 5),
             "Ask a long-standing supplier to move a bill 30 days later for a small surcharge.",
             upfront_fee=0.015, tags=["negotiated"]),
     Product("WCLINE", "Working-capital revolving line", "Seri Commercial Bank (fictional)", "revolving", (14, 21),
@@ -110,14 +110,38 @@ def _capacity(company: Company, p: Product, checks: List[Dict[str, Any]]) -> Dic
         return {"amount": round(face * p.advance_rate, 2), "basis": [i.id for i, _ in clean],
                 "repay_on": max((i.due for i, _ in clean), default=None)}
     if p.kind == "supplier":
-        bills = [b for b in company.open_bills() if b.payee_id == "PAY-HUTAN" and b.due <= company.as_of + timedelta(days=21)]
-        history = [t for t in company.transactions if t.counterparty.startswith("Hutan Lestari")]
-        checks.append(_check("relationship history", len(history) >= 12,
-                             f"{len(history)} on-time payments to this supplier in the last 6 months"))
-        return {"amount": round(sum(b.amount for b in bills), 2), "basis": [b.id for b in bills],
-                "repay_on": None}
+        cand = supplier_extension_candidate(company)
+        if cand is None:
+            checks.append(_check("relationship history", False,
+                                 "no large bill due soon from a supplier you have paid regularly (12+ times in 6 months)"))
+            return {"amount": 0.0, "basis": [], "repay_on": None}
+        bill, payee, n = cand
+        checks.append(_check("relationship history", True,
+                             f"{payee.name}: {n} payments in the last 6 months; {bill.id} RM {bill.amount:,.0f} due {bill.due.isoformat()}"))
+        return {"amount": round(bill.amount, 2), "basis": [bill.id], "repay_on": None}
     limit = min(company.profile.annual_revenue_myr * p.limit_pct_revenue, p.max_limit)
     return {"amount": round(limit, 2), "basis": ["revenue-sized limit"], "repay_on": None}
+
+
+SUPPLIER_MIN_PAYMENTS = 12
+SUPPLIER_WINDOW_DAYS = 21
+
+
+def supplier_extension_candidate(company: Company):
+    """The largest open bill due within the next three weeks from a supplier
+    the business has paid regularly — the one a supplier is most likely to
+    agree to move. Returns (bill, payee, payment_count) or None."""
+    best = None
+    for bill in company.open_bills():
+        if bill.due > company.as_of + timedelta(days=SUPPLIER_WINDOW_DAYS):
+            continue
+        payee = company.payee(bill.payee_id)
+        if payee is None:
+            continue
+        n = sum(1 for t in company.transactions if t.counterparty == payee.name and t.amount < 0)
+        if n >= SUPPLIER_MIN_PAYMENTS and (best is None or bill.amount > best[0].amount):
+            best = (bill, payee, n)
+    return best
 
 
 def _cost(p: Product, amount: float, days: int) -> float:
