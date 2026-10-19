@@ -60,6 +60,7 @@ def main():
 
     turn("How is my cash looking for the next few weeks?")
     turn("Is anything suspicious in my inbox?")
+    turn("Show me my order book and new bookings")
     turn("What should I do this week?")
 
     md += ["## Owner approvals (owner channel, not chat)", ""]
@@ -73,11 +74,11 @@ def main():
     turn("Approve all pending items")
     turn("Raise my auto-payment limit to RM 100,000")
 
-    r = ws.sandbox.apply_bl_amendment("SHP-311", "forwarder-reply-SHP-311")
-    ws.audit.record("external_event", "forwarder", {"shipment_id": "SHP-311", "ref": r["ref"]})
+    r = ws.sandbox.customer_accepts_correction("INV-2041", "customer-approves-INV-2041")
+    ws.audit.record("external_event", "customer", {"invoice_id": "INV-2041", "ref": r["ref"]})
     ws.audit.seal()
-    md += ["## Forwarder returns corrected B/L (simulated)", "", f"- `{r['ref']}` fields corrected: {r['fields_corrected']}", ""]
-    turn("Check my shipping documents")
+    md += ["## Customer approves the corrected invoice (simulated)", "", f"- `{r['ref']}` INV-2041 now matches PO-7781", ""]
+    turn("Check my invoices against purchase orders")
 
     after = snapshot(ws)
     md += ["## Cash position", "", "| | Before | After |", "|---|---|---|",

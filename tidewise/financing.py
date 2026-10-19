@@ -18,7 +18,7 @@ from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 from .models import Company, Invoice, to_base
-from .trade_docs import check_shipment
+from .matching import three_way_match
 
 ELIGIBLE_BUYER_COUNTRIES = {"AU", "JP", "GB", "NL", "US", "SG", "DE", "FR", "MY", "KR", "NZ", "CA"}
 HIGH_COST_APR = 0.36
@@ -31,7 +31,7 @@ class Product:
     id: str
     name: str
     provider: str
-    kind: str                       # invoice | lc | revolving | term | supplier | mca
+    kind: str                       # invoice | po | revolving | term | supplier | mca
     days_to_fund: tuple
     summary: str
     min_years: float = 0
@@ -49,12 +49,12 @@ class Product:
 
 
 CATALOGUE: List[Product] = [
-    Product("INVFIN", "Export invoice financing", "Lumen Trade Capital (fictional)", "invoice", (1, 3),
-            "Advance 80% of unpaid open-account invoices; repaid when the buyer pays.",
+    Product("INVFIN", "Invoice financing", "Lumen Trade Capital (fictional)", "invoice", (1, 3),
+            "Advance 80% of unpaid, undisputed invoices; repaid when the customer pays.",
             min_years=1, worst_band="D", advance_rate=0.80, monthly_rate=0.012, upfront_fee=0.005),
-    Product("LCDISC", "LC bill discounting", "Your trade bank (fictional)", "lc", (1, 2),
-            "Bank buys the complying LC presentation at a discount; cheapest money an exporter can get.",
-            worst_band="E", advance_rate=0.95, annual_rate=0.068, upfront_fee=0.0025),
+    Product("POFIN", "Purchase-order financing", "Lumen Trade Capital (fictional)", "po", (3, 7),
+            "Advance 60% of confirmed orders whose deposit is paid, to buy materials; repaid from the order's balance.",
+            min_years=2, worst_band="C", advance_rate=0.60, monthly_rate=0.015, upfront_fee=0.01),
     Product("SUPTERMS", "Supplier terms extension", "Your long-standing supplier", "supplier", (2, 5),
             "Ask a long-standing supplier to move a bill 30 days later for a small surcharge.",
             upfront_fee=0.015, tags=["negotiated"]),
@@ -72,16 +72,22 @@ CATALOGUE: List[Product] = [
 ]
 
 
-def _check(name: str, passed: bool, detail: str) -> Dict[str, Any]:
-    return {"check": name, "passed": passed, "detail": detail}
+def _check(name: str, passed: bool, detail: str, info: bool = False) -> Dict[str, Any]:
+    """info=True: an explanation (e.g. one invoice left out) that doesn't
+    decide the product's eligibility on its own."""
+    return {"check": name, "passed": passed, "detail": detail, "info": info}
+
+
+def _disputed(company: Company, inv: Invoice) -> bool:
+    return bool(inv.order_id and inv.lines and three_way_match(company, inv.id)["status"] == "MISMATCH")
 
 
 def _eligible_invoices(company: Company) -> List[Invoice]:
     horizon = company.as_of + timedelta(days=90)
     return [i for i in company.open_invoices()
-            if i.terms == "OPEN_ACCOUNT" and not i.financed and not i.pledged_to and i.due >= company.as_of
+            if not i.financed and not i.pledged_to and i.due >= company.as_of
             and i.due <= horizon and i.country in ELIGIBLE_BUYER_COUNTRIES
-            and to_base(i.amount, i.currency) >= 20_000]
+            and to_base(i.amount, i.currency) >= 20_000 and not _disputed(company, i)]
 
 
 def _capacity(company: Company, p: Product, checks: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -89,26 +95,28 @@ def _capacity(company: Company, p: Product, checks: List[Dict[str, Any]]) -> Dic
         invs = _eligible_invoices(company)
         face = sum(to_base(i.amount, i.currency) for i in invs)
         checks.append(_check("eligible invoices", bool(invs),
-                             f"{len(invs)} open-account invoices, not overdue, due within 90 days, ≥ RM 20k: "
+                             f"{len(invs)} undisputed invoices, not overdue, due within 90 days, ≥ RM 20k: "
                              + (", ".join(i.id for i in invs) or "none")))
+        for i in company.open_invoices():
+            if _disputed(company, i):
+                checks.append(_check(f"{i.id} left out", False,
+                                     f"{i.id} doesn't match the customer's PO — a financier won't advance on it "
+                                     "until the corrected invoice is accepted", info=True))
         return {"amount": round(face * p.advance_rate, 2), "basis": [i.id for i in invs],
                 "repay_on": max((i.due for i in invs), default=None)}
-    if p.kind == "lc":
-        lc_invs = [i for i in company.open_invoices() if i.terms == "LC" and i.shipment_id and not i.financed]
-        clean, blocked = [], []
-        for i in lc_invs:
-            chk = check_shipment(company, i.shipment_id)
-            (blocked if chk["blocks_lc_payment"] else clean).append((i, chk))
-        for i, chk in blocked:
-            fields = ", ".join(d["label"] for d in chk["discrepancies"])
-            checks.append(_check(f"complying presentation ({i.id})", False,
-                                 f"{i.shipment_id} has a {fields} discrepancy — the bank will not discount a "
-                                 "non-complying presentation. Amend the B/L first."))
-        if clean:
-            checks.append(_check("complying presentation", True, ", ".join(i.id for i, _ in clean)))
-        face = sum(to_base(i.amount, i.currency) for i, _ in clean)
-        return {"amount": round(face * p.advance_rate, 2), "basis": [i.id for i, _ in clean],
-                "repay_on": max((i.due for i, _ in clean), default=None)}
+    if p.kind == "po":
+        orders = [o for o in company.orders if o.status in ("confirmed", "in_production")
+                  and o.deposit_due == 0 and company.known_customer(o.customer)
+                  and not o.assessment.get("po_financed")]
+        unpaid = [o for o in company.orders if o.status in ("confirmed", "in_production") and o.deposit_due > 0]
+        checks.append(_check("confirmed orders with deposit paid", bool(orders),
+                             ", ".join(f"{o.id} {o.customer}" for o in orders) or "none"))
+        for o in unpaid:
+            checks.append(_check(f"{o.id} left out", False,
+                                 f"{o.customer} hasn't paid the {o.deposit_pct:.0%} deposit yet", info=True))
+        face = sum(to_base(o.total - o.total * o.deposit_pct, o.currency) for o in orders)
+        return {"amount": round(face * p.advance_rate, 2), "basis": [o.id for o in orders],
+                "repay_on": max((o.delivery_date + timedelta(days=30) for o in orders), default=None)}
     if p.kind == "supplier":
         cand = supplier_extension_candidate(company)
         if cand is None:
@@ -169,7 +177,7 @@ def evaluate(company: Company, p: Product, need: float, need_by: date, tenor_day
         checks.append(_check("collateral", prof.has_collateral, "requires property or fixed-deposit collateral"))
 
     cap = _capacity(company, p, checks)
-    eligible = all(c["passed"] for c in checks) and cap["amount"] > 0
+    eligible = all(c["passed"] for c in checks if not c.get("info")) and cap["amount"] > 0
     draw = min(need, cap["amount"]) if eligible else 0.0
     funds_by = company.as_of + timedelta(days=p.days_to_fund[1])
     days = tenor_days

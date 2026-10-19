@@ -44,7 +44,10 @@ TIER_LABEL = {0: "T0 · read", 1: "T1 · notify", 2: "T2 · execute within limit
 BASE_TIER = {
     "read": Tier.T0_READ,
     "send_reminder": Tier.T1_NOTIFY,
-    "send_amendment_request": Tier.T1_NOTIFY,
+    "send_corrected_invoice": Tier.T1_NOTIFY,
+    "request_deposit": Tier.T1_NOTIFY,
+    "decline_booking": Tier.T1_NOTIFY,
+    "confirm_booking": Tier.T2_EXECUTE,
     "pay_bill": Tier.T2_EXECUTE,
     "fx_convert": Tier.T2_EXECUTE,
     "request_supplier_extension": Tier.T3_APPROVE,
@@ -64,6 +67,8 @@ class Limits:
     auto_fx_usd: float = 5_000
     step_up_above_myr: float = 50_000      # approvals above this must re-type the amount
     reminder_cooldown_days: int = 7
+    auto_confirm_booking_myr: float = 50_000  # bookings above this always need the owner
+    auto_confirm_max_risk: float = 0.3        # ML late-payment risk above this needs the owner
     max_auto_actions_per_turn: int = 10
     approval_ttl_hours: int = 48
 
@@ -234,11 +239,79 @@ class Policy:
         checks.append(Check("reminder cooldown", cool, "first reminder this week" if cool else f"already reminded on {last}"))
         return Tier.T1_NOTIFY if cool else Tier.T4_PROHIBITED
 
-    def _check_send_amendment_request(self, a: Action, checks: List[Check]) -> Tier:
-        to = a.params.get("to")
-        ok = to == self.company.forwarder_contact
-        checks.append(Check("registered recipient", ok, f"sending to {to}"))
-        return Tier.T1_NOTIFY if ok else Tier.T4_PROHIBITED
+    def _registered(self, customer: str, to: str, checks: List[Check]) -> bool:
+        contact = self.company.customer_contacts.get(customer)
+        ok = contact is not None and to == contact
+        checks.append(Check("registered recipient", ok,
+                            f"sending to {to}" + ("" if ok else f" — registered contact is {contact}")))
+        return ok
+
+    def _check_send_corrected_invoice(self, a: Action, checks: List[Check]) -> Tier:
+        from .matching import three_way_match
+        inv = self.company.invoice(a.params.get("invoice_id", ""))
+        if inv is None or inv.paid_on or not inv.order_id:
+            checks.append(Check("invoice open", False, "no open invoice with a purchase order"))
+            return Tier.T4_PROHIBITED
+        m = three_way_match(self.company, inv.id)
+        ok = m["status"] == "MISMATCH" and inv.correction is None
+        checks.append(Check("correction needed", ok, "invoice fails the three-way match" if ok else "nothing to correct"))
+        new_total = float(a.params.get("new_total", -1))
+        matches = abs(new_total - m.get("po_total", -2)) < 0.01
+        checks.append(Check("corrected to the PO", matches,
+                            f"new total {inv.currency} {new_total:,.2f} vs PO {inv.currency} {m.get('po_total', 0):,.2f}"))
+        if not (ok and matches) or not self._registered(inv.customer, a.params.get("to"), checks):
+            return Tier.T4_PROHIBITED
+        return Tier.T1_NOTIFY
+
+    def _check_request_deposit(self, a: Action, checks: List[Check]) -> Tier:
+        o = self.company.order(a.params.get("order_id", ""))
+        ok = o is not None and o.status in ("confirmed", "in_production") and o.deposit_due > 0
+        checks.append(Check("deposit due", ok, f"{o.currency} {o.deposit_due:,.0f} outstanding" if ok else "no deposit due"))
+        if not ok or not self._registered(o.customer, a.params.get("to"), checks):
+            return Tier.T4_PROHIBITED
+        return Tier.T1_NOTIFY
+
+    def _check_decline_booking(self, a: Action, checks: List[Check]) -> Tier:
+        o = self.company.order(a.params.get("order_id", ""))
+        if o is None or o.status != "pending":
+            checks.append(Check("booking pending", False, "no such pending booking"))
+            return Tier.T4_PROHIBITED
+        flagged = o.assessment.get("screening", {}).get("trust") == "quarantined"
+        checks.append(Check("screening", True, "booking quarantined — safe to decline" if flagged
+                            else "declining a clean booking is a business decision"))
+        return Tier.T1_NOTIFY if flagged else Tier.T3_APPROVE
+
+    def _check_confirm_booking(self, a: Action, checks: List[Check]) -> Tier:
+        o = self.company.order(a.params.get("order_id", ""))
+        if o is None or o.status != "pending":
+            checks.append(Check("booking pending", False, "no such pending booking"))
+            return Tier.T4_PROHIBITED
+        ax = o.assessment
+        value = to_base(o.total, o.currency)
+        checks.append(Check("_amount", True, str(value)))
+        clean = ax.get("screening", {}).get("trust") != "quarantined"
+        checks.append(Check("booking screening", clean, "notes are clean" if clean
+                            else "booking notes were quarantined — " + "; ".join(ax["screening"]["findings"][:2])))
+        if not clean:
+            return Tier.T4_PROHIBITED
+        tier = Tier.T2_EXECUTE
+        known = bool(ax.get("contact_matches"))
+        checks.append(Check("known customer, contact on file", known,
+                            "booked from the registered contact" if known else "new customer or unknown contact"))
+        risk = float(ax.get("risk", 1))
+        low = risk <= self.limits.auto_confirm_max_risk
+        checks.append(Check("late-payment risk (ML)", low, f"{risk:.0%} ({ax.get('risk_basis', '')})"))
+        small = value <= self.limits.auto_confirm_booking_myr
+        checks.append(Check("order size", small, f"RM {value:,.0f} vs auto limit RM {self.limits.auto_confirm_booking_myr:,.0f}"))
+        feasible = bool(ax.get("feasible"))
+        checks.append(Check("factory capacity", feasible,
+                            f"ready by {ax.get('ready_by')} for delivery {o.delivery_date.isoformat()}"))
+        deposit = float(a.params.get("deposit_pct", 0))
+        enough = deposit + 1e-9 >= float(ax.get("deposit_pct", 0.5))
+        checks.append(Check("deposit", enough, f"asking {deposit:.0%}, recommended {ax.get('deposit_pct', 0.5):.0%}"))
+        if not (known and low and small and feasible and enough):
+            tier = Tier.T3_APPROVE
+        return tier
 
     def _check_request_supplier_extension(self, a: Action, checks: List[Check]) -> Tier:
         bill = self.company.bill(a.params.get("bill_id", ""))
@@ -271,4 +344,5 @@ class Policy:
 
 
 HARD_CHECKS = {"not already paid", "payee verified", "bank details match", "funds available",
-               "registered recipient", "invoice open", "bill exists", "bill open", "known action"}
+               "registered recipient", "invoice open", "bill exists", "bill open", "known action",
+               "correction needed", "corrected to the PO", "deposit due", "booking pending", "booking screening"}

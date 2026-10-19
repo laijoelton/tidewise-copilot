@@ -60,7 +60,7 @@ class TestRootCause(unittest.TestCase):
         fc = cashflow.forecast(c)
         chain = cashflow.root_cause_chain(c, fc, match_for_forecast(c, fc))
         self.assertEqual([x["kind"] for x in chain][0], "cause")
-        self.assertIn("SHP-311", chain[0]["title"])
+        self.assertIn("INV-2041", chain[0]["title"])
         self.assertEqual(chain[-1]["kind"], "fix")
 
 
@@ -103,7 +103,7 @@ class TestGuardUpgrades(unittest.TestCase):
         self.assertEqual(s.trust, "quarantined")
 
     def test_legit_mail_still_verified(self):
-        self.assertEqual(self._scan("docs@portlink-forwarding.example", "Draft B/L attached.").trust, "verified")
+        self.assertEqual(self._scan("finance@harbourhearth.example", "Remittance for INV-2044 attached.").trust, "verified")
 
 
 class TestGrounding(unittest.TestCase):

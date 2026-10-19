@@ -128,10 +128,15 @@ class SandboxBank:
                                  + product.upfront_fee), 2)
             self.company.repayments.append({"date": repay_on, "amount_myr": round(draw + cost, 2),
                                             "label": f"{product.name} repayment", "source": product_id})
-        elif product.kind == "lc":
-            for inv_id in ev["basis"]:
-                self.company.invoice(inv_id).financed = True
-                pledged.append(self.company.invoice(inv_id))
+        elif product.kind == "po":
+            orders = [self.company.order(o) for o in ev["basis"]]
+            for o in orders:
+                o.assessment["po_financed"] = product_id
+            repay_on = max(o.delivery_date + timedelta(days=30) for o in orders)
+            cost = round(draw * (product.monthly_rate * max(1, (repay_on - self.company.as_of).days) / 30
+                                 + product.upfront_fee), 2)
+            self.company.repayments.append({"date": repay_on, "amount_myr": round(draw + cost, 2),
+                                            "label": f"{product.name} repayment", "source": product_id})
         self._post("MYR-OPS", draw, "financing", product.provider, f"{product.name} disbursement")
         app = {"product_id": product_id, "product": product.name, "provider": product.provider,
                "requested": amount, "disbursed": draw, "secured_on": [i.id for i in pledged] or ev["basis"],
@@ -153,16 +158,72 @@ class SandboxBank:
                                                          "new_due": bill.due.isoformat(), "old_amount": old_amount,
                                                          "new_amount": bill.amount})
 
-    def apply_bl_amendment(self, shipment_id: str, key: str) -> Dict[str, Any]:
-        """Simulated forwarder reply: the corrected draft B/L arrives and
-        replaces the old one, so the next document check runs on it."""
+    # -- invoices & orders ---------------------------------------------------------------
+    def issue_corrected_invoice(self, invoice_id: str, to: str, subject: str, body: str, key: str) -> Dict[str, Any]:
+        """Re-issues the invoice at the PO's quantities and prices and sends it
+        to the customer's registered accounts contact."""
         if (r := self._replay(key)):
             return r
-        from .trade_docs import check_shipment
-        s = self.company.shipment(shipment_id)
-        fixed = []
-        for d in check_shipment(self.company, shipment_id)["discrepancies"]:
-            if d["bl_evidence"]["text"] and d["si_evidence"]["text"]:
-                s.bl_text = s.bl_text.replace(d["bl_evidence"]["text"], d["si_evidence"]["text"])
-                fixed.append(d["field"])
-        return self._done(key, "forwarder_amended_bl", {"shipment_id": shipment_id, "fields_corrected": fixed})
+        inv = self.company.invoice(invoice_id)
+        order = self.company.order(inv.order_id) if inv and inv.order_id else None
+        if inv is None or order is None or inv.paid_on:
+            raise SandboxError(f"{invoice_id} is not an open invoice with an order")
+        old = inv.amount
+        by_sku = {l.sku: l for l in order.lines}
+        for line in inv.lines:
+            if line.sku in by_sku:
+                line.qty, line.unit_price = by_sku[line.sku].qty, by_sku[line.sku].unit_price
+        from .matching import three_way_match
+        inv.correction_note = "; ".join(d["detail"] for d in three_way_match(self.company, invoice_id)["discrepancies"])
+        inv.amount = round(sum(l.total for l in inv.lines), 2)
+        inv.correction = "sent"
+        self.outbox.append({"kind": "corrected_invoice", "to": to, "subject": subject, "body": mask(body), "about": invoice_id})
+        return self._done(key, "issue_corrected_invoice", {"invoice_id": invoice_id, "old_amount": old,
+                                                           "new_amount": inv.amount, "to": to})
+
+    def customer_accepts_correction(self, invoice_id: str, key: str) -> Dict[str, Any]:
+        """Simulated customer: their accounts team re-runs the match and approves."""
+        if (r := self._replay(key)):
+            return r
+        inv = self.company.invoice(invoice_id)
+        if inv is None or inv.correction != "sent":
+            raise SandboxError(f"no corrected invoice awaiting approval for {invoice_id}")
+        inv.correction = "accepted"
+        return self._done(key, "customer_approved_invoice", {"invoice_id": invoice_id})
+
+    def confirm_booking(self, order_id: str, deposit_pct: float, to: str, body: str, key: str) -> Dict[str, Any]:
+        if (r := self._replay(key)):
+            return r
+        o = self.company.order(order_id)
+        if o is None or o.status != "pending":
+            raise SandboxError(f"{order_id} is not a pending booking")
+        o.status, o.deposit_pct = "confirmed", deposit_pct
+        if not self.company.known_customer(o.customer):
+            self.company.customer_contacts[o.customer] = o.contact
+        self.outbox.append({"kind": "booking_confirmation", "to": to, "subject": f"Order {o.id} confirmed — {o.po_number}",
+                            "body": mask(body), "about": order_id})
+        return self._done(key, "confirm_booking", {"order_id": order_id, "deposit_pct": deposit_pct,
+                                                   "deposit_due": o.deposit_due, "currency": o.currency, "to": to})
+
+    def decline_booking(self, order_id: str, reason: str, key: str) -> Dict[str, Any]:
+        if (r := self._replay(key)):
+            return r
+        o = self.company.order(order_id)
+        if o is None or o.status != "pending":
+            raise SandboxError(f"{order_id} is not a pending booking")
+        o.status = "declined"
+        o.assessment["declined_because"] = reason
+        return self._done(key, "decline_booking", {"order_id": order_id, "reason": reason})
+
+    def record_deposit(self, order_id: str, key: str) -> Dict[str, Any]:
+        """Simulated customer paying the deposit on a confirmed order."""
+        if (r := self._replay(key)):
+            return r
+        o = self.company.order(order_id)
+        if o is None or o.status not in ("confirmed", "in_production") or o.deposit_due <= 0:
+            raise SandboxError(f"no deposit due on {order_id}")
+        amount = o.deposit_due
+        acct = "USD-COLL" if o.currency == "USD" else "MYR-OPS"
+        self._post(acct, amount, "deposit", o.customer, f"deposit {o.id}")
+        o.deposit_paid = round(o.deposit_paid + amount, 2)
+        return self._done(key, "deposit_received", {"order_id": order_id, "amount": amount, "currency": o.currency})

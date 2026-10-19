@@ -1,163 +1,133 @@
-"""
-Merkle-chained, tamper-evident log.
+"""Merkle-chained log.
 
-Records accumulate as pending leaves; flush() closes a batch, builds its
-Merkle tree and chains the new root to the previous one, so the whole
-history is tamper-evident across batches. Each record also gets its own
-inclusion proof, so any single record can be shown to be in the log against
-a published root without revealing the others.
-"""
+Entries are added one by one and sealed into blocks. Each block stores the
+Merkle root of its entries and the root of the block before it, so:
 
+  * changing, removing or reordering any sealed entry changes its block's
+    root and breaks the chain from there on;
+  * any single entry can be proven to be in a block with a short path of
+    sibling hashes, without revealing the other entries.
+
+Hashes are domain-separated (0x00 for entries, 0x01 for inner nodes) so an
+inner node can never be passed off as an entry.
+"""
 
 import hashlib
 import json
 import time
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
-
-def _h(data: bytes) -> bytes:
-    return hashlib.sha256(data).digest()
+GENESIS = "0" * 64
 
 
-def _leaf_hash(payload: Dict[str, Any]) -> bytes:
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return _h(b"leaf:" + encoded)
+def _digest(prefix: bytes, data: bytes) -> str:
+    return hashlib.sha256(prefix + data).hexdigest()
 
 
-def _node_hash(left: bytes, right: bytes) -> bytes:
-    return _h(b"node:" + left + right)
+def entry_hash(entry: Dict[str, Any]) -> str:
+    return _digest(b"\x00", json.dumps(entry, sort_keys=True, separators=(",", ":"), default=str).encode())
 
 
-def _build_tree(leaves: List[bytes]) -> List[List[bytes]]:
-    """Full tree as a list of levels, leaves at index 0, root the sole entry
-    of the last level. An odd node at a level is paired with itself."""
-    levels = [leaves]
-    current = leaves
-    while len(current) > 1:
-        nxt = []
-        for i in range(0, len(current), 2):
-            left = current[i]
-            right = current[i + 1] if i + 1 < len(current) else current[i]
-            nxt.append(_node_hash(left, right))
+def node_hash(left: str, right: str) -> str:
+    return _digest(b"\x01", bytes.fromhex(left) + bytes.fromhex(right))
+
+
+def merkle_levels(hashes: List[str]) -> List[List[str]]:
+    """All levels bottom-up; an unpaired last hash is carried up unchanged."""
+    levels = [list(hashes)]
+    while len(levels[-1]) > 1:
+        cur, nxt = levels[-1], []
+        for i in range(0, len(cur) - 1, 2):
+            nxt.append(node_hash(cur[i], cur[i + 1]))
+        if len(cur) % 2:
+            nxt.append(cur[-1])
         levels.append(nxt)
-        current = nxt
     return levels
 
 
-def _proof_for_index(levels: List[List[bytes]], index: int) -> List[Tuple[str, bytes]]:
-    proof = []
-    idx = index
+def audit_path(levels: List[List[str]], index: int) -> List[Tuple[str, str]]:
+    """Sibling hashes from leaf to root; side 'L' means the sibling is on the left."""
+    path = []
     for level in levels[:-1]:
-        sibling = idx ^ 1
-        if sibling < len(level):
-            side = "R" if sibling > idx else "L"
-            proof.append((side, level[sibling]))
-        else:
-            # idx is the odd node out at this level — _build_tree paired it with
-            # itself, so the proof must do the same rather than skip a step.
-            proof.append(("R", level[idx]))
-        idx //= 2
-    return proof
+        sib = index ^ 1
+        if sib < len(level):
+            path.append(("L" if sib < index else "R", level[sib]))
+        index //= 2
+    return path
 
 
-def verify_proof(leaf_hash: bytes, proof: List[Tuple[str, bytes]], root: bytes) -> bool:
-    current = leaf_hash
-    for side, sibling in proof:
-        current = _node_hash(current, sibling) if side == "R" else _node_hash(sibling, current)
-    return current == root
+def root_from_path(leaf: str, path: List[Tuple[str, str]]) -> str:
+    h = leaf
+    for side, sib in path:
+        h = node_hash(sib, h) if side == "L" else node_hash(h, sib)
+    return h
 
 
-@dataclass
-class LogRecord:
-    record_id: int
-    payload: Dict[str, Any]
-    batch_index: Optional[int] = None
-    leaf_index: Optional[int] = None
-
-
-class MerkleAuditLog:
+class MerkleLog:
     def __init__(self, path: Optional[str] = None):
         self.path = path
-        self._records: List[LogRecord] = []
-        self._pending: List[LogRecord] = []
-        self._batches: List[Dict[str, Any]] = []
-        self._proofs: Dict[int, List[Tuple[str, bytes]]] = {}
-        self._next_id = 0
+        self.blocks: List[Dict[str, Any]] = []
+        self._entries: Dict[int, Dict[str, Any]] = {}
+        self._where: Dict[int, Tuple[int, int]] = {}      # entry id -> (block, position)
+        self._levels: Dict[int, List[List[str]]] = {}
+        self._open: List[int] = []
+        self._next = 0
 
-    def append(self, payload: Dict[str, Any]) -> int:
-        record = LogRecord(self._next_id, payload)
-        self._next_id += 1
-        self._records.append(record)
-        self._pending.append(record)
-        return record.record_id
+    def add(self, entry: Dict[str, Any]) -> int:
+        eid = self._next
+        self._next += 1
+        self._entries[eid] = entry
+        self._open.append(eid)
+        return eid
 
-    def pending_count(self) -> int:
-        return len(self._pending)
+    def unsealed(self) -> int:
+        return len(self._open)
 
-    def flush(self) -> Optional[Dict[str, Any]]:
-        """Close the current batch: build its Merkle tree, anchor the root to
-        the previous one, and compute an inclusion proof for every record."""
-        if not self._pending:
+    def seal(self) -> Optional[Dict[str, Any]]:
+        if not self._open:
             return None
+        hashes = [entry_hash(self._entries[e]) for e in self._open]
+        levels = merkle_levels(hashes)
+        number = len(self.blocks)
+        block = {"index": number, "root": levels[-1][0],
+                 "prev_root": self.blocks[-1]["root"] if self.blocks else GENESIS,
+                 "entry_ids": list(self._open), "size": len(self._open), "sealed_at": time.time()}
+        self.blocks.append(block)
+        self._levels[number] = levels
+        for pos, eid in enumerate(self._open):
+            self._where[eid] = (number, pos)
+        self._open = []
+        self._save()
+        return block
 
-        leaves = [_leaf_hash(r.payload) for r in self._pending]
-        levels = _build_tree(leaves)
-        root = levels[-1][0]
-        prev_root = self._batches[-1]["root"] if self._batches else "0" * 64
-        batch_index = len(self._batches)
-
-        for i, record in enumerate(self._pending):
-            record.batch_index = batch_index
-            record.leaf_index = i
-            self._proofs[record.record_id] = _proof_for_index(levels, i)
-
-        batch = {
-            "index": batch_index,
-            "root": root.hex(),
-            "prev_root": prev_root,
-            "record_ids": [r.record_id for r in self._pending],
-            "size": len(self._pending),
-            "ts": time.time(),
-        }
-        self._batches.append(batch)
-        self._pending = []
-        self._persist()
-        return batch
-
-    def get_receipt(self, record_id: int) -> Optional[Dict[str, Any]]:
-        record = next((r for r in self._records if r.record_id == record_id), None)
-        if record is None or record.batch_index is None:
+    def proof(self, eid: int) -> Optional[Dict[str, Any]]:
+        if eid not in self._where:
             return None
-        proof = self._proofs[record_id]
-        batch = self._batches[record.batch_index]
-        return {
-            "record_id": record_id,
-            "leaf_hash": _leaf_hash(record.payload).hex(),
-            "proof": [(side, h.hex()) for side, h in proof],
-            "root": batch["root"],
-            "batch_index": batch["index"],
-        }
+        number, pos = self._where[eid]
+        return {"entry_id": eid, "leaf": entry_hash(self._entries[eid]),
+                "path": audit_path(self._levels[number], pos),
+                "root": self.blocks[number]["root"], "block": number}
 
-    def verify_receipt(self, receipt: Dict[str, Any]) -> bool:
-        leaf = bytes.fromhex(receipt["leaf_hash"])
-        proof = [(side, bytes.fromhex(h)) for side, h in receipt["proof"]]
-        root = bytes.fromhex(receipt["root"])
-        return verify_proof(leaf, proof, root)
+    @staticmethod
+    def check_proof(p: Dict[str, Any]) -> bool:
+        return root_from_path(p["leaf"], [tuple(x) for x in p["path"]]) == p["root"]
 
-    def verify_chain_integrity(self) -> Tuple[bool, str]:
-        prev = "0" * 64
-        for batch in self._batches:
-            if batch["prev_root"] != prev:
-                return False, f"batch {batch['index']} does not chain to the previous root"
-            prev = batch["root"]
-        return True, f"{len(self._batches)} batches verified, chain intact"
+    def check_chain(self) -> Tuple[bool, str]:
+        prev = GENESIS
+        for b in self.blocks:
+            if b["prev_root"] != prev:
+                return False, f"block {b['index']} does not link to the block before it"
+            recomputed = merkle_levels([entry_hash(self._entries[e]) for e in b["entry_ids"]])[-1][0]
+            if recomputed != b["root"]:
+                return False, f"block {b['index']} no longer matches its entries"
+            prev = b["root"]
+        return True, f"{len(self.blocks)} blocks verified, chain intact"
 
-    def _persist(self):
+    def _save(self) -> None:
         if not self.path:
             return
         try:
             with open(self.path, "w", encoding="utf-8") as f:
-                json.dump(self._batches, f, indent=2)
+                json.dump(self.blocks, f, indent=2)
         except OSError:
             pass

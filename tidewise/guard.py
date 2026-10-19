@@ -116,8 +116,6 @@ def known_domains(company: Company) -> Dict[str, str]:
     out = {p.domain: p.name for p in company.payees if p.domain}
     for customer, email in company.customer_contacts.items():
         out[email.split("@")[-1]] = customer
-    if company.forwarder_contact:
-        out[company.forwarder_contact.split("@")[-1]] = "Freight forwarder"
     return out
 
 

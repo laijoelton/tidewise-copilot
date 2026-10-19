@@ -23,7 +23,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import analysis, cashflow, financing, guard, trade_docs
+from . import analysis, bookings, cashflow, financing, guard, matching
 from .audit import AuditTrail
 from .data import build_demo_company
 from .llm import LLM
@@ -34,11 +34,12 @@ from .sandbox import SandboxBank, SandboxError
 EVIDENCE_DIR = Path(__file__).resolve().parent.parent / "evidence"
 
 INTENTS = {
-    "autopilot": "review everything and act: forecast, documents, inbox, reminders, payments, financing plan",
+    "autopilot": "review everything and act: forecast, invoices, bookings, inbox, reminders, payments, financing plan",
     "forecast": "13-week cash-flow forecast, shortfalls and alerts",
     "health": "business financial analysis: margins, DSO/DPO, liquidity",
     "financing": "match financing options to the cash gap",
-    "documents": "check trade documents / letters of credit for discrepancies",
+    "documents": "check invoices against purchase orders and delivery notes (three-way match)",
+    "orders": "order book and new customer bookings, deposits, capacity",
     "inbox": "screen the inbox for fraud and prompt injection",
     "receivables": "who owes money, overdue invoices",
     "bills": "upcoming bills to pay",
@@ -49,7 +50,8 @@ ROUTES = [
     ("forecast", r"\b(cash|forecast|runway|shortfall|next (few )?(weeks|month)|balance|enough money)\b"),
     ("health", r"\b(health|analy[sz]|margin|ratio|dso|dpo|profit|how('s| is) (my|the) business|performance)\b"),
     ("financing", r"\b(financ|loan|borrow|fund|bridge|credit line|lender|capital)\w*"),
-    ("documents", r"\b(document|b/?l|bill of lading|letter of credit|\blc\b|shipment|discrepanc)\w*"),
+    ("documents", r"\b(three.way|purchase orders?|\bpo\b|mismatch\w*|discrepanc\w*|invoice check|check (my )?invoices?)"),
+    ("orders", r"\b(orders?|bookings?|order book|deposits?|capacity|new customers?)\b"),
     ("inbox", r"\b(inbox|email|e-mail|message|phish|fraud|scam|suspicious)\w*"),
     ("receivables", r"\b(owe|owed|receivable|overdue|unpaid invoice|customers? (who )?(haven't|have not) paid)\b"),
     ("bills", r"\b(bills?|payables?|suppliers?|due)\b"),
@@ -80,6 +82,18 @@ def _why_quarantined(m: Dict[str, Any]) -> str:
         if r and r not in reasons and f["severity"] == "critical":
             reasons.append(r)
     return f"{m['message_id']} from {m['sender']} quarantined — " + "; ".join(reasons) + ". Nothing in it will be acted on."
+
+
+def _confirmation(c: Company, o, ax) -> str:
+    return (f"Dear {o.customer},\n\nThank you for order {o.po_number}. We can deliver by {o.delivery_date.isoformat()}. "
+            f"To start production we need a {ax['deposit_pct']:.0%} deposit of {o.currency} {o.total * ax['deposit_pct']:,.2f}; "
+            f"the balance is due 30 days after delivery.\n\nRegards,\n{c.profile.owner}\n{c.profile.legal_name}")
+
+
+def _deposit_note(c: Company, o) -> str:
+    return (f"Dear {o.customer} accounts team,\n\nA friendly reminder that the {o.deposit_pct:.0%} deposit of "
+            f"{o.currency} {o.deposit_due:,.2f} for {o.po_number} is due before production starts.\n\n"
+            f"Regards,\n{c.profile.owner}\n{c.profile.legal_name}")
 
 
 def parse_whatif(text: str, company: Company) -> Optional[Dict[str, Any]]:
@@ -152,6 +166,7 @@ class Workspace:
         self.llm = LLM() if self.use_llm else None
         self.agent = Agent(self)
         self._screen_inbox()
+        bookings.assess_pending(self.company)
 
     def _screen_inbox(self) -> None:
         self.scans = {s.message_id: s for s in guard.scan_inbox(self.company)}
@@ -315,10 +330,10 @@ class Agent:
             self.propose(Action("fx_convert", {"usd": float(m.group(1).replace(",", ""))}, "owner",
                                 rationale="owner asked to convert USD to MYR"), steps)
             handled = True
-        m = re.search(r"\bapply\b.*\b(invoice financing|invfin|lc discount\w*|lcdisc|working.capital|wcline)\b", t)
+        m = re.search(r"\bapply\b.*\b(invoice financing|invfin|purchase.order financing|po financing|pofin|working.capital|wcline)\b", t)
         if m:
-            pid = {"invoice financing": "INVFIN", "invfin": "INVFIN", "working capital": "WCLINE", "wcline": "WCLINE"}.get(
-                m.group(1).replace("-", " "), "LCDISC")
+            key = m.group(1).replace("-", " ")
+            pid = "INVFIN" if key in ("invoice financing", "invfin") else "WCLINE" if key in ("working capital", "wcline") else "POFIN"
             amt = re.search(r"(?:rm\s*)?([\d,]{4,})", t)
             amount = float(amt.group(1).replace(",", "")) if amt else self._gap() or 50_000
             self.propose(Action("apply_financing", {"product_id": pid, "amount": amount}, "owner",
@@ -354,11 +369,23 @@ class Agent:
         return self._read("business_health", steps, s, a)
 
     def _do_documents(self, steps):
-        res = [trade_docs.check_shipment(self.ws.company, s.id) for s in self.ws.company.shipments]
-        bad = [r for r in res if r["discrepancies"]]
-        s = f"{len(res)} shipments checked; {len(bad)} with discrepancies" + (
-            f" ({', '.join(r['shipment_id'] for r in bad)})" if bad else "")
-        return self._read("check_trade_documents", steps, s, res)
+        c = self.ws.company
+        res = [matching.three_way_match(c, i.id) for i in c.open_invoices() if i.order_id and i.lines]
+        bad = [r for r in res if r["status"] == "MISMATCH"]
+        s = f"{len(res)} invoices matched to PO and delivery note; {len(bad)} mismatched" + (
+            f" ({', '.join(r['invoice_id'] for r in bad)})" if bad else "")
+        return self._read("three_way_match", steps, s, res)
+
+    def _do_orders(self, steps):
+        c = self.ws.company
+        bookings.assess_pending(c)
+        book = [o for o in c.orders if o.status in ("confirmed", "in_production")]
+        pending = [o for o in c.orders if o.status == "pending"]
+        rows = [{"id": o.id, "customer": o.customer, "status": o.status, "currency": o.currency, "total": o.total,
+                 "deposit_due": o.deposit_due, "delivery": o.delivery_date.isoformat(),
+                 "verdict": o.assessment.get("verdict"), "why": o.assessment.get("why")} for o in book + pending]
+        s = f"{len(book)} orders in the book, {len(pending)} new booking(s) to assess"
+        return self._read("order_book", steps, s, rows)
 
     def _do_financing(self, steps):
         fc = cashflow.forecast(self.ws.company)
@@ -400,13 +427,34 @@ class Agent:
 
         out["documents"] = self._do_documents(steps)
         for r in out["documents"]:
-            if r["blocks_lc_payment"]:
-                draft = trade_docs.draft_amendment_request(c, r["shipment_id"])
-                self.propose(Action("send_amendment_request",
-                                    {"shipment_id": r["shipment_id"], "to": draft["to"], "subject": draft["subject"],
-                                     "body": draft["body"]}, "books",
-                                    rationale=f"{r['discrepancies'][0]['label']} discrepancy will get the LC presentation refused"),
+            draft = matching.draft_correction(c, r["invoice_id"]) if r["status"] == "MISMATCH" else None
+            if draft:
+                self.propose(Action("send_corrected_invoice",
+                                    {"invoice_id": r["invoice_id"], "to": draft["to"], "subject": draft["subject"],
+                                     "body": draft["body"], "new_total": draft["new_total"]}, "books",
+                                    rationale=f"{r['discrepancies'][0]['label']} doesn't match {r['po_number']} — "
+                                              f"the customer would hold it ~{r['expected_delay_days']} days"),
                              steps)
+
+        out["orders"] = self._do_orders(steps)
+        for o in [o for o in c.orders if o.status == "pending"]:
+            ax = o.assessment
+            if ax.get("verdict") == "decline":
+                self.propose(Action("decline_booking", {"order_id": o.id, "reason": ax["why"]}, "books",
+                                    source_ref=None, rationale=f"booking {o.id}: {ax['why']}"), steps)
+            else:
+                self.propose(Action("confirm_booking", {"order_id": o.id, "deposit_pct": ax["deposit_pct"],
+                                                        "to": o.contact, "body": _confirmation(c, o, ax)}, "books",
+                                    rationale=f"{o.customer} {o.po_number}: {ax['why']}; "
+                                              f"{ax['deposit_pct']:.0%} deposit, ready by {_d(ax['ready_by']) if ax['ready_by'] else '—'}"),
+                             steps)
+        for o in c.orders:
+            if o.status in ("confirmed", "in_production") and o.deposit_due > 0 and not o.assessment.get("deposit_requested"):
+                to = c.customer_contacts.get(o.customer)
+                self.propose(Action("request_deposit", {"order_id": o.id, "to": to,
+                                                        "subject": f"Deposit for {o.po_number}",
+                                                        "body": _deposit_note(c, o)}, "books",
+                                    rationale=f"{o.currency} {o.deposit_due:,.0f} deposit outstanding on {o.id}"), steps)
 
         out["forecast"] = self._do_forecast(steps)
         for inv in c.open_invoices():
@@ -431,10 +479,9 @@ class Agent:
                     self.propose(Action("apply_financing", {"product_id": p["id"], "amount": p["amount"]}, "books",
                                         rationale=f"{p['name']}: funds by {p['funds_by']}, est. cost RM {p['cost']:,.0f}"),
                                  steps)
-            lc = next((o for o in m["options"] if o["id"] == "LCDISC"), None)
-            if lc and not lc["eligible"]:
-                steps.append({"kind": "note", "text": "Once the corrected B/L is back, LC discounting (≈6.8% p.a.) "
-                                                      "becomes available and is cheaper than any bridge."})
+            if matching.open_mismatches(c):
+                steps.append({"kind": "note", "text": "Once the customer approves the corrected invoice, it can be "
+                                                      "financed too — and it lands on time, closing most of the gap."})
         return out
 
     def _remind(self, inv, steps, provenance: str):
@@ -459,8 +506,15 @@ class Agent:
         elif a.type == "send_reminder":
             r = sb.send_message("reminder", p["to"], p["subject"], p["body"], key, ref=p["invoice_id"])
             ws.policy.reminder_log[p["invoice_id"]] = ws.company.as_of
-        elif a.type == "send_amendment_request":
-            r = sb.send_message("bl_amendment", p["to"], p["subject"], p["body"], key, ref=p["shipment_id"])
+        elif a.type == "send_corrected_invoice":
+            r = sb.issue_corrected_invoice(p["invoice_id"], p["to"], p["subject"], p["body"], key)
+        elif a.type == "request_deposit":
+            r = sb.send_message("deposit_request", p["to"], p["subject"], p["body"], key, ref=p["order_id"])
+            ws.company.order(p["order_id"]).assessment["deposit_requested"] = ws.company.as_of.isoformat()
+        elif a.type == "confirm_booking":
+            r = sb.confirm_booking(p["order_id"], float(p["deposit_pct"]), p["to"], p["body"], key)
+        elif a.type == "decline_booking":
+            r = sb.decline_booking(p["order_id"], p.get("reason", ""), key)
         elif a.type == "request_supplier_extension":
             r = sb.extend_supplier_terms(p["bill_id"], int(p.get("days", 30)), float(p.get("surcharge", 0.015)), key)
         elif a.type == "apply_financing":
@@ -490,6 +544,9 @@ class Agent:
             return to_base(b.amount, b.currency)
         if a.type == "apply_financing":
             return float(p.get("amount", 0))
+        if a.type == "confirm_booking" and c.order(p.get("order_id", "")):
+            o = c.order(p["order_id"])
+            return to_base(o.total, o.currency)
         if a.type == "fx_convert":
             return to_base(float(p.get("usd", 0)), "USD")
         return 0.0
@@ -509,8 +566,15 @@ class Agent:
             return f"Convert USD {float(p['usd']):,.0f} to MYR"
         if a.type == "send_reminder":
             return f"Send payment reminder for {p.get('invoice_id')} to {p.get('to')}"
-        if a.type == "send_amendment_request":
-            return f"Ask the forwarder ({p.get('to')}) to amend the B/L for {p.get('shipment_id')}"
+        if a.type == "send_corrected_invoice":
+            return f"Send corrected invoice {p.get('invoice_id')} to {p.get('to')}"
+        if a.type == "confirm_booking":
+            o = c.order(p["order_id"])
+            return f"Confirm booking {o.id} from {o.customer} ({o.currency} {o.total:,.0f}, {float(p['deposit_pct']):.0%} deposit)"
+        if a.type == "decline_booking":
+            return f"Decline booking {p.get('order_id')}"
+        if a.type == "request_deposit":
+            return f"Request deposit for {p.get('order_id')}"
         return a.type
 
     # -- replies ------------------------------------------------------------------------
@@ -561,18 +625,24 @@ class Agent:
             else:
                 out.append(f"Cash stays above your {_rm(fc['cash_buffer'])} floor for the next 13 weeks "
                            f"(low point {_rm(fc['trough']['balance'])} on {_d(fc['trough']['date'])}).")
-            section("Why", [a["title"] for a in fc["alerts"] if a["code"] in ("LC_DISCREPANCY", "DOUBTFUL_RECEIVABLE")])
+            section("Why", [a["title"] for a in fc["alerts"]
+                            if a["code"] in ("INVOICE_MISMATCH", "INVOICE_CORRECTION_PENDING", "DOUBTFUL_RECEIVABLE")])
         if facts.get("health"):
             section("Business health", [i["title"] for i in facts["health"]["insights"]])
         docs = facts.get("documents")
         if docs:
-            items = [f"{r['shipment_id']}: {d['label']} — B/L {d['bl_display']} vs SI {d['si_display']} "
-                     f"(SI line {d['si_evidence']['line']}, B/L line {d['bl_evidence']['line']})"
-                     for r in docs for d in r["discrepancies"]]
+            items = [f"{r['invoice_id']} vs {r['po_number']}: {d['label']} — {d['detail']}"
+                     for r in docs if r["status"] == "MISMATCH" for d in r["discrepancies"]]
             if items:
-                section("Document discrepancies", items)
+                section("Invoices that don't match the purchase order", items)
             else:
-                out.append("All trade documents agree.")
+                out.append("Every invoice matches its purchase order and delivery note.")
+        if facts.get("orders") is not None and "autopilot" not in intents:
+            rows = facts["orders"]
+            section("Order book & bookings", [f"{r['id']} {r['customer']} — {r['status']}"
+                                               + (f", deposit {r['currency']} {r['deposit_due']:,.0f} due" if r['deposit_due'] else "")
+                                               + (f" · Tidewise suggests: {r['verdict']} ({r['why']})" if r['status'] == 'pending' else "")
+                                               for r in rows])
         fin = facts.get("financing")
         if fin and "autopilot" not in intents:
             section(f"Cheapest way to cover {_rm(fin['need'])} by {_d(fin['need_by'])}",
@@ -615,7 +685,10 @@ class Agent:
             return f"apply for {name}: {_rm(float(p.get('amount', 0)))}"
         return {
             "send_reminder": lambda: f"{'reminded' if done else 'remind'} {p.get('to')} about {p.get('invoice_id')}",
-            "send_amendment_request": lambda: f"{'asked' if done else 'ask'} the forwarder to amend the B/L for {p.get('shipment_id')}",
+            "send_corrected_invoice": lambda: f"{'sent' if done else 'send'} corrected invoice {p.get('invoice_id')} to {p.get('to')}",
+            "request_deposit": lambda: f"{'requested' if done else 'request'} the deposit for {p.get('order_id')}",
+            "confirm_booking": lambda: f"{'confirmed' if done else 'confirm'} booking {p.get('order_id')} ({float(p.get('deposit_pct', 0)):.0%} deposit)",
+            "decline_booking": lambda: f"{'declined' if done else 'decline'} booking {p.get('order_id')} — {p.get('reason')}",
             "fx_convert": lambda: f"convert USD {float(p.get('usd', 0)):,.0f}",
             "pay_bill": lambda: f"pay {p.get('bill_id')}",
         }.get(s["type"], lambda: s["type"].replace("_", " "))()

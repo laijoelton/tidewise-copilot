@@ -26,7 +26,8 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
 from tidewise.engine.ratelimit import RateLimiter  # noqa: E402
-from tidewise import analysis, cashflow, financing, redteam, trade_docs  # noqa: E402
+from tidewise import analysis, bookings, cashflow, financing, matching, redteam  # noqa: E402
+from datetime import date as _date  # noqa: E402
 from tidewise.agent import Workspace  # noqa: E402
 from tidewise.policy import BASE_TIER, TIER_LABEL  # noqa: E402
 
@@ -59,6 +60,12 @@ def require_owner(x_owner_token: Optional[str] = Header(default=None)):
 def _announce():
     print(f"\n  Tidewise owner token (approvals channel): {OWNER_TOKEN}\n")
 
+    def warm():                       # train the ML models off the request path
+        from tidewise import ml
+        ml.threat_model(), ml.collection_model()
+    import threading
+    threading.Thread(target=warm, daemon=True).start()
+
 
 # -- models --------------------------------------------------------------------------
 class ChatIn(BaseModel):
@@ -81,8 +88,26 @@ class AutonomyIn(BaseModel):
     paused: bool
 
 
-class SimulateIn(BaseModel):
-    shipment_id: str = Field(pattern=r"^SHP-\d{3}$")
+class InvoiceRef(BaseModel):
+    invoice_id: str = Field(pattern=r"^INV-\d{4}$")
+
+
+class OrderRef(BaseModel):
+    order_id: str = Field(pattern=r"^ORD-\d{3}$")
+
+
+class BookingItem(BaseModel):
+    sku: str = Field(pattern=r"^[A-Z]{2}-[A-Z]{3,6}$")
+    qty: int = Field(ge=1, le=5000)
+
+
+class BookingIn(BaseModel):
+    customer: str = Field(min_length=2, max_length=80)
+    email: str = Field(pattern=r"^[^@\s]{1,64}@[A-Za-z0-9.-]{1,120}\.[A-Za-z]{2,24}$")
+    po_number: str = Field(min_length=1, max_length=32)
+    items: list[BookingItem] = Field(min_length=1, max_length=10)
+    delivery: _date
+    notes: str = Field(default="", max_length=1000)
 
 
 # -- read ----------------------------------------------------------------------------
@@ -122,14 +147,55 @@ def get_analysis():
     return analysis.analyse(ws.company)
 
 
-@app.get("/api/documents")
-def documents():
+@app.get("/api/matching")
+def invoice_matching():
+    c = ws.company
     out = []
-    for s in ws.company.shipments:
-        r = trade_docs.check_shipment(ws.company, s.id)
-        r["si_text"], r["bl_text"] = s.si_text, s.bl_text
-        out.append(r)
+    for inv in c.open_invoices():
+        if inv.order_id and inv.lines:
+            r = matching.three_way_match(c, inv.id)
+            o = c.order(inv.order_id)
+            dn = c.delivery_for(o.id)
+            r.update(issued=inv.issued.isoformat(), due=inv.due.isoformat(), amount=inv.amount,
+                     delivered_on=dn.delivered_on.isoformat() if dn else None, signed_by=dn.signed_by if dn else None)
+            out.append(r)
     return out
+
+
+def _order_row(o):
+    return {"id": o.id, "customer": o.customer, "po_number": o.po_number, "placed": o.placed.isoformat(),
+            "currency": o.currency, "total": o.total, "total_myr": round(o.total * (4.42 if o.currency == "USD" else 1), 2),
+            "lines": [{"sku": l.sku, "description": l.description, "qty": l.qty, "unit_price": l.unit_price} for l in o.lines],
+            "delivery_date": o.delivery_date.isoformat(), "status": o.status, "channel": o.channel,
+            "deposit_pct": o.deposit_pct, "deposit_paid": o.deposit_paid, "deposit_due": o.deposit_due,
+            "contact": o.contact, "notes": o.notes, "invoice_id": o.invoice_id, "assessment": o.assessment}
+
+
+@app.get("/api/orders")
+def orders():
+    c = ws.company
+    return {"orders": [_order_row(o) for o in sorted(c.orders, key=lambda o: o.placed, reverse=True)],
+            "catalogue": [p.__dict__ for p in c.catalogue]}
+
+
+# -- customer channel (the booking portal) ---------------------------------------------
+@app.post("/api/bookings")
+def create_booking(body: BookingIn):
+    """Public: a customer books an order. Prices come from our catalogue, the
+    notes are screened like email, and nothing is confirmed here — the agent
+    and policy decide, exactly as for any other booking."""
+    try:
+        o = bookings.new_booking(ws.company, body.customer.strip(), body.email.strip().lower(), body.po_number.strip(),
+                                 [(i.sku, i.qty) for i in body.items], body.delivery, body.notes)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    ws.audit.record("booking_received", "customer", {"order_id": o.id, "customer": o.customer,
+                                                     "verdict": o.assessment["verdict"]})
+    ws.audit.seal()
+    a = o.assessment
+    return {"order_id": o.id, "status": o.status, "total": o.total, "currency": o.currency,
+            "message": "Thank you — your booking was received and will be confirmed by email.",
+            "deposit_pct": a["deposit_pct"] if a["verdict"] != "decline" else None}
 
 
 @app.get("/api/financing")
@@ -215,15 +281,30 @@ def reject(approval_id: str, who: str = Depends(require_owner)):
 
 
 # -- demo controls -----------------------------------------------------------------------
-@app.post("/api/simulate/forwarder-reply")
-def forwarder_reply(body: SimulateIn):
-    """Stands in for the forwarder emailing back a corrected draft B/L."""
-    if ws.company.shipment(body.shipment_id) is None:
-        raise HTTPException(404, "unknown shipment")
-    r = ws.sandbox.apply_bl_amendment(body.shipment_id, f"forwarder-reply-{body.shipment_id}")
-    ws.audit.record("external_event", "forwarder", {"shipment_id": body.shipment_id, "ref": r["ref"]})
+@app.post("/api/simulate/customer-approves")
+def customer_approves(body: InvoiceRef):
+    """Stands in for the customer's accounts team approving a corrected invoice."""
+    from tidewise.sandbox import SandboxError
+    try:
+        r = ws.sandbox.customer_accepts_correction(body.invoice_id, f"customer-approves-{body.invoice_id}")
+    except SandboxError as e:
+        raise HTTPException(409, str(e))
+    ws.audit.record("external_event", "customer", {"invoice_id": body.invoice_id, "ref": r["ref"]})
     ws.audit.seal()
-    return {"receipt": r, "check": trade_docs.check_shipment(ws.company, body.shipment_id)}
+    return {"receipt": r, "match": matching.three_way_match(ws.company, body.invoice_id)}
+
+
+@app.post("/api/simulate/deposit")
+def customer_pays_deposit(body: OrderRef):
+    """Stands in for a customer paying the deposit on a confirmed order."""
+    from tidewise.sandbox import SandboxError
+    try:
+        r = ws.sandbox.record_deposit(body.order_id, f"deposit-{body.order_id}")
+    except SandboxError as e:
+        raise HTTPException(409, str(e))
+    ws.audit.record("external_event", "customer", {"order_id": body.order_id, "ref": r["ref"]})
+    ws.audit.seal()
+    return {"receipt": r}
 
 
 @app.post("/api/whatif")

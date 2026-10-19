@@ -26,7 +26,8 @@ export const api = {
   overview: () => call('/api/overview'),
   forecast: () => call('/api/forecast'),
   analysis: () => call('/api/analysis'),
-  documents: () => call('/api/documents'),
+  matching: () => call('/api/matching'),
+  orders: () => call('/api/orders'),
   financing: () => call('/api/financing'),
   inbox: () => call('/api/inbox'),
   ledger: () => call('/api/ledger'),
@@ -39,8 +40,11 @@ export const api = {
   approve: (id: string, confirm_amount?: number) =>
     call(`/api/approvals/${id}/approve`, { method: 'POST', owner: true, body: JSON.stringify({ confirm_amount }) }),
   reject: (id: string) => call(`/api/approvals/${id}/reject`, { method: 'POST', owner: true, body: '{}' }),
-  forwarderReply: (shipment_id: string) =>
-    call('/api/simulate/forwarder-reply', { method: 'POST', body: JSON.stringify({ shipment_id }) }),
+  customerApproves: (invoice_id: string) =>
+    call('/api/simulate/customer-approves', { method: 'POST', body: JSON.stringify({ invoice_id }) }),
+  payDeposit: (order_id: string) =>
+    call('/api/simulate/deposit', { method: 'POST', body: JSON.stringify({ order_id }) }),
+  book: (booking: Json) => call('/api/bookings', { method: 'POST', body: JSON.stringify(booking) }),
   redteam: () => call('/api/redteam', { method: 'POST', body: '{}' }),
   ml: () => call('/api/ml'),
   whatif: (scenario: Json) => call('/api/whatif', { method: 'POST', body: JSON.stringify(scenario) }),

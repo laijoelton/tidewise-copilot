@@ -1,34 +1,82 @@
-"""Tidewise test cases: forecast, document check, financing, guard, policy,
-sandbox, agent loop, audit and the red-team suite."""
+"""Tidewise test cases: three-way match, bookings, forecast, financing,
+guard, policy, sandbox, agent loop, audit and the red-team suite."""
 
 import unittest
 from datetime import date
 
-from tidewise import analysis, cashflow, financing, guard, redteam, trade_docs
+from tidewise import analysis, bookings, cashflow, financing, guard, matching, redteam
 from tidewise.agent import Workspace
 from tidewise.data import build_demo_company
 from tidewise.policy import Action, Policy
 
 
-class TestTradeDocs(unittest.TestCase):
-    def test_bl_weight_discrepancy_found_with_line_evidence(self):
-        r = trade_docs.check_shipment(build_demo_company(), "SHP-311")
+class TestThreeWayMatch(unittest.TestCase):
+    def test_price_typo_found_against_po(self):
+        r = matching.three_way_match(build_demo_company(), "INV-2041")
         self.assertEqual(r["status"], "MISMATCH")
         d = r["discrepancies"][0]
-        self.assertEqual(d["field"], "gross_weight_kg")
-        self.assertEqual((d["si_value"], d["bl_value"]), (18540.0, 18450.0))
-        self.assertEqual(d["si_evidence"]["line"], 9)
-        self.assertTrue(r["blocks_lc_payment"])
+        self.assertEqual((d["field"], d["po"], d["invoice"]), ("unit_price", 359, 395))
+        self.assertEqual(d["impact"], 1440)
+        self.assertEqual((r["po_total"], r["invoice_total"]), (37160, 38600))
+        self.assertTrue(r["blocks_payment"])
 
-    def test_clean_shipment_passes(self):
-        r = trade_docs.check_shipment(build_demo_company(), "SHP-309")
-        self.assertEqual(r["status"], "OK")
-        self.assertFalse(r["blocks_lc_payment"])
+    def test_clean_invoice_matches(self):
+        r = matching.three_way_match(build_demo_company(), "INV-2044")
+        self.assertEqual(r["status"], "MATCHED")
+        self.assertFalse(r["blocks_payment"])
 
-    def test_amendment_draft_cites_both_values(self):
-        draft = trade_docs.draft_amendment_request(build_demo_company(), "SHP-311")
-        self.assertIn("18450", draft["body"].replace(",", ""))
-        self.assertIn("18540", draft["body"].replace(",", ""))
+    def test_billing_more_than_delivered_is_caught(self):
+        c = build_demo_company()
+        c.invoice("INV-2044").lines[0].qty = 70          # delivered 60
+        kinds = {d["field"] for d in matching.three_way_match(c, "INV-2044")["discrepancies"]}
+        self.assertTrue({"quantity", "delivered"} <= kinds)
+
+    def test_correction_draft_and_hold_states(self):
+        ws = Workspace(use_llm=False)
+        draft = matching.draft_correction(ws.company, "INV-2041")
+        self.assertEqual(draft["new_total"], 37160)
+        self.assertIn("359.00", draft["body"])
+        ws.sandbox.issue_corrected_invoice("INV-2041", draft["to"], draft["subject"], draft["body"], "k")
+        m = matching.three_way_match(ws.company, "INV-2041")
+        self.assertEqual((m["status"], m["expected_delay_days"]), ("AWAITING_APPROVAL", matching.HOLD_DAYS_CORRECTION_SENT))
+        ws.sandbox.customer_accepts_correction("INV-2041", "k2")
+        self.assertEqual(matching.three_way_match(ws.company, "INV-2041")["status"], "MATCHED")
+
+
+class TestBookings(unittest.TestCase):
+    def setUp(self):
+        self.ws = Workspace(use_llm=False)
+        self.c = self.ws.company
+
+    def test_known_low_risk_customer_can_auto_confirm(self):
+        ax = self.c.order("ORD-322").assessment
+        self.assertEqual(ax["verdict"], "confirm")
+        self.assertEqual(ax["deposit_pct"], 0.3)
+
+    def test_new_customer_goes_to_owner_with_higher_deposit(self):
+        ax = self.c.order("ORD-323").assessment
+        self.assertEqual(ax["verdict"], "owner")
+        self.assertEqual(ax["deposit_pct"], 0.5)
+
+    def test_injected_booking_declined(self):
+        ax = self.c.order("ORD-324").assessment
+        self.assertEqual((ax["verdict"], ax["screening"]["trust"]), ("decline", "quarantined"))
+
+    def test_known_name_from_unknown_address_is_not_trusted(self):
+        o = bookings.new_booking(self.c, "Harbour & Hearth Pty Ltd", "purchasing@hh-group.example", "PO-X",
+                                 [("RT-STOOL", 20)], self.c.as_of.replace(month=12))
+        self.assertFalse(o.assessment["contact_matches"])
+        self.assertEqual(o.assessment["verdict"], "owner")
+
+    def test_prices_come_from_catalogue(self):
+        o = bookings.new_booking(self.c, "Kiyomi Living KK", "keiri@kiyomi.example", "PO-K-200",
+                                 [("RL-CHAIR", 10)], self.c.as_of.replace(month=12))
+        self.assertEqual(o.lines[0].unit_price, 95)
+
+    def test_unknown_sku_rejected(self):
+        with self.assertRaises(ValueError):
+            bookings.new_booking(self.c, "Kiyomi Living KK", "keiri@kiyomi.example", "PO", [("XX-FAKE", 1)],
+                                 self.c.as_of.replace(month=12))
 
 
 class TestForecast(unittest.TestCase):
@@ -39,25 +87,30 @@ class TestForecast(unittest.TestCase):
     def test_shortfall_detected_on_timber_bill_date(self):
         self.assertEqual(self.fc["first_buffer_breach"], "2026-10-26")
         self.assertLess(self.fc["trough"]["balance"], 0)
-        self.assertGreater(self.fc["funding_gap"], 90_000)
+        self.assertGreater(self.fc["funding_gap"], 80_000)
 
-    def test_lc_receivable_delayed_by_discrepancy(self):
+    def test_mismatched_invoice_delayed_by_hold(self):
         ev = next(e for e in self.fc["events"] if e["source"] == "INV-2041")
-        self.assertIn("LC refusal risk", ev["basis"])
+        self.assertIn("on hold", ev["basis"])
         self.assertGreaterEqual(date.fromisoformat(ev["date"]), date(2026, 11, 10))
+
+    def test_order_book_deposit_in_forecast(self):
+        self.assertTrue(any(e["source"] == "ORD-320" and "deposit" in e["label"] for e in self.fc["events"]))
 
     def test_doubtful_receivable_excluded(self):
         self.assertIn("INV-2032", [e["source"] for e in self.fc["excluded"]])
 
-    def test_fixing_the_document_removes_the_gap(self):
+    def test_accepted_correction_removes_the_gap(self):
         ws = Workspace(use_llm=False)
-        ws.sandbox.apply_bl_amendment("SHP-311", "t")
-        self.assertEqual(trade_docs.check_shipment(ws.company, "SHP-311")["status"], "OK")
+        d = matching.draft_correction(ws.company, "INV-2041")
+        ws.sandbox.issue_corrected_invoice("INV-2041", d["to"], d["subject"], d["body"], "a")
+        ws.sandbox.customer_accepts_correction("INV-2041", "b")
         self.assertEqual(cashflow.forecast(ws.company)["funding_gap"], 0)
 
     def test_alert_codes(self):
         codes = [a["code"] for a in self.fc["alerts"]]
-        for code in ("CASH_SHORTFALL", "LC_DISCREPANCY", "DOUBTFUL_RECEIVABLE", "OVERDUE_RECEIVABLE"):
+        for code in ("CASH_SHORTFALL", "INVOICE_MISMATCH", "DOUBTFUL_RECEIVABLE", "OVERDUE_RECEIVABLE",
+                     "DEPOSIT_DUE", "BOOKINGS_PENDING"):
             self.assertIn(code, codes)
 
     def test_weekly_buckets_reconcile_to_daily(self):
@@ -80,10 +133,15 @@ class TestFinancing(unittest.TestCase):
         self.m = financing.match_for_forecast(self.c, cashflow.forecast(self.c))
         self.by_id = {o["id"]: o for o in self.m["options"]}
 
-    def test_lc_discounting_blocked_by_discrepancy(self):
-        lc = self.by_id["LCDISC"]
-        self.assertFalse(lc["eligible"])
-        self.assertTrue(any("discrepancy" in c["detail"] for c in lc["checks"] if not c["passed"]))
+    def test_mismatched_invoice_not_financeable(self):
+        inv = self.by_id["INVFIN"]
+        self.assertTrue(inv["eligible"])
+        self.assertNotIn("INV-2041", inv["basis"])
+        self.assertTrue(any("doesn't match" in c["detail"] for c in inv["checks"] if not c["passed"]))
+
+    def test_po_financing_only_on_paid_deposits(self):
+        po = self.by_id["POFIN"]
+        self.assertEqual(po["basis"], ["ORD-318"])
 
     def test_slow_products_not_on_time(self):
         self.assertFalse(self.by_id["WCLINE"]["on_time"])
@@ -160,12 +218,14 @@ class TestAgentLoop(unittest.TestCase):
         ws = Workspace(use_llm=False)
         r = ws.agent.chat("What should I do this week?")
         outcomes = [(s["type"], s["decision"]["outcome"]) for s in r["steps"] if s["kind"] == "action"]
-        self.assertIn(("send_amendment_request", "auto"), outcomes)
+        self.assertIn(("send_corrected_invoice", "auto"), outcomes)
+        self.assertIn(("confirm_booking", "auto"), outcomes)           # known, low-risk customer
+        self.assertIn(("confirm_booking", "needs_approval"), outcomes)  # new customer
+        self.assertIn(("decline_booking", "auto"), outcomes)           # injected booking
         self.assertIn(("pay_bill", "auto"), outcomes)
         self.assertIn(("request_supplier_extension", "needs_approval"), outcomes)
-        self.assertEqual(len(ws.sandbox.outbox), 3)            # 1 amendment + 2 reminders
-        self.assertEqual({p["action"]["type"] for p in r["pending_approvals"]},
-                         {"request_supplier_extension", "apply_financing"})
+        self.assertEqual(ws.company.order("ORD-324").status, "declined")
+        self.assertEqual(ws.company.invoice("INV-2041").correction, "sent")
 
         for item in ws.agent.pending():
             ws.agent.approve(item["id"], "owner", confirm_amount=item["amount_myr"])

@@ -6,7 +6,7 @@ import { bump, useLoad } from '../lib/hooks'
 
 const TIERS = [
   ['T0 · read', 'Look at books, forecast, analyse, check documents', 'Automatic'],
-  ['T1 · notify', 'Templated messages to registered contacts only (reminders, B/L amendment)', 'Automatic, rate-limited'],
+  ['T1 · notify', 'Templated messages to registered contacts only: reminders, corrected invoices, deposit requests', 'Automatic, rate-limited'],
   ['T2 · execute', 'Pay approved bills to verified payees, small FX — inside owner limits', 'Automatic within limits'],
   ['T3 · approve', 'Larger payments, any credit commitment, renegotiating terms', 'Owner approval, step-up above threshold'],
   ['T4 · prohibited', 'New payees, changed bank details, unknown transfers, changing limits', 'Never — owner uses their bank'],

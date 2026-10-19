@@ -2,8 +2,9 @@
 
 Receipts are dated by what each customer actually does, not what the invoice
 says: the expected date is the due date plus that customer's average payment
-delay over the last six months. Letter-of-credit receivables are pushed out by
-the re-presentation cycle when the trade-document check finds a discrepancy.
+delay over the last six months. An invoice that fails the customer's
+three-way match (PO / delivery note / invoice) is pushed out by the hold it
+will get. Confirmed orders add their deposits and near-term balances.
 Receivables far past their customer's norm are treated as doubtful and left
 out of the forecast instead of being counted as cash.
 """
@@ -14,7 +15,7 @@ from statistics import mean
 from typing import Any, Dict, List
 
 from .models import Company, Invoice, to_base
-from .trade_docs import check_shipment
+from .matching import three_way_match
 
 DOUBTFUL_AFTER_DAYS = 30        # this many days past the customer's own norm
 CONCENTRATION_LIMIT = 0.35
@@ -49,20 +50,21 @@ def _receipt_plan(company: Company, inv: Invoice, delays: Dict[str, float]) -> D
     norm = delays.get(inv.customer, 0.0)
     expected = inv.due + timedelta(days=round(norm))
     reason = f"due {inv.due.isoformat()} + {norm:g}d average delay for {inv.customer}"
-    doc_check = None
-    if inv.terms == "LC" and inv.shipment_id:
-        doc_check = check_shipment(company, inv.shipment_id)
-        if doc_check["blocks_lc_payment"]:
-            expected = expected + timedelta(days=doc_check["expected_delay_days"])
-            fields = ", ".join(d["label"] for d in doc_check["discrepancies"])
-            reason += f"; +{doc_check['expected_delay_days']}d LC refusal risk ({fields} discrepancy)"
+    match = None
+    if inv.order_id and inv.lines:
+        match = three_way_match(company, inv.id)
+        if match["blocks_payment"]:
+            expected = expected + timedelta(days=match["expected_delay_days"])
+            fields = ", ".join(d["label"] for d in match["discrepancies"])
+            state = "correction sent, awaiting re-approval" if inv.correction == "sent" else "doesn't match the PO"
+            reason += f"; +{match['expected_delay_days']}d on hold — {state} ({fields})"
     days_past_norm = (company.as_of - (inv.due + timedelta(days=round(norm)))).days
     doubtful = days_past_norm > DOUBTFUL_AFTER_DAYS
     if expected < company.as_of:
         expected = company.as_of + timedelta(days=3)   # overdue but collectible: assume soon
         reason += "; overdue, assumed within 3 days"
     return {"expected": expected, "reason": reason, "doubtful": doubtful,
-            "days_overdue": max(0, (company.as_of - inv.due).days), "doc_check": doc_check}
+            "days_overdue": max(0, (company.as_of - inv.due).days), "match": match}
 
 
 def _recurring_dates(day_of_month: int, start: date, end: date) -> List[date]:
@@ -111,6 +113,24 @@ def build_events(company: Company, horizon_days: int) -> Dict[str, Any]:
             excluded.append({**entry, "why": f"{plan['days_overdue']} days overdue, well past this customer's norm"})
         elif plan["expected"] <= end:
             events.append(entry)
+
+    for o in company.orders:
+        if o.status not in ("confirmed", "in_production"):
+            continue
+        norm = delays.get(o.customer, 0.0)
+        if o.deposit_due > 0:
+            on = max(company.as_of + timedelta(days=3), o.placed + timedelta(days=7))
+            if on <= end:
+                events.append({"date": on, "direction": "in", "amount_myr": to_base(o.deposit_due, o.currency),
+                               "label": f"{o.customer} — deposit {o.id}", "source": o.id,
+                               "basis": f"{o.deposit_pct:.0%} deposit on {o.po_number}, requested on confirmation"})
+        balance = o.total - o.total * o.deposit_pct
+        on = o.delivery_date + timedelta(days=30 + round(norm))
+        # Beyond the run-rate start, new business is already in the projection.
+        if balance > 0 and on < company.as_of + timedelta(days=RUN_RATE_FROM_DAY):
+            events.append({"date": on, "direction": "in", "amount_myr": to_base(balance, o.currency),
+                           "label": f"{o.customer} — balance {o.id}", "source": o.id,
+                           "basis": f"delivery {o.delivery_date.isoformat()} + 30d terms + {norm:g}d habit"})
 
     for bill in company.open_bills():
         if bill.due <= end:
@@ -213,17 +233,35 @@ def alerts(company: Company, fc: Dict[str, Any]) -> List[Dict[str, Any]]:
                     "title": f"Cash drops below your RM {fc['cash_buffer']:,.0f} floor on {nice(fc['first_buffer_breach'])}",
                     "detail": f"Lowest projected balance RM {fc['trough']['balance']:,.0f} on {nice(fc['trough']['date'])}."})
 
-    for s in company.shipments:
-        chk = check_shipment(company, s.id)
-        if chk["blocks_lc_payment"]:
-            inv = company.invoice(chk["invoice_id"])
-            d = chk["discrepancies"][0]
-            out.append({"severity": "critical", "code": "LC_DISCREPANCY",
-                        "title": f"{d['label']} mismatch on {s.id} puts {inv.currency} {inv.amount:,.0f} at risk",
-                        "detail": f"Draft B/L says {d['bl_display']}, shipping instruction says {d['si_display']}. "
-                                  f"The bank will refuse the LC presentation; payment slips ~{chk['expected_delay_days']} days "
-                                  f"unless the B/L is amended before {nice(s.lc_terms['presentation_deadline']) if (s.lc_terms or {}).get('presentation_deadline') else 'presentation'}.",
-                        "ref": s.id})
+    for inv in company.open_invoices():
+        if not (inv.order_id and inv.lines):
+            continue
+        m = three_way_match(company, inv.id)
+        if m["status"] == "MISMATCH":
+            d = m["discrepancies"][0]
+            out.append({"severity": "critical", "code": "INVOICE_MISMATCH",
+                        "title": f"{inv.id} doesn't match {inv.customer}'s purchase order",
+                        "detail": f"{d['label']}: {d['detail']}. Their accounts team will hold "
+                                  f"{inv.currency} {inv.amount:,.0f} for ~{m['expected_delay_days']} days. "
+                                  "Send a corrected invoice now to shorten the hold.",
+                        "ref": inv.id})
+        elif m["status"] == "AWAITING_APPROVAL":
+            out.append({"severity": "warning", "code": "INVOICE_CORRECTION_PENDING",
+                        "title": f"Corrected {inv.id} sent — waiting for {inv.customer} to re-approve",
+                        "detail": f"Fixed: {m.get('note')}. Expect payment in their next run, ~{m['expected_delay_days']} days late.",
+                        "ref": inv.id})
+
+    for o in company.orders:
+        if o.status in ("confirmed", "in_production") and o.deposit_due > 0:
+            out.append({"severity": "info", "code": "DEPOSIT_DUE",
+                        "title": f"Deposit of {o.currency} {o.deposit_due:,.0f} not yet received for {o.id}",
+                        "detail": f"{o.customer}, {o.po_number}: {o.deposit_pct:.0%} deposit before production starts.",
+                        "ref": o.id})
+    pending = [o for o in company.orders if o.status == "pending"]
+    if pending:
+        out.append({"severity": "info", "code": "BOOKINGS_PENDING",
+                    "title": f"{len(pending)} new booking(s) waiting for a decision",
+                    "detail": ", ".join(f"{o.id} {o.customer}" for o in pending), "ref": "orders"})
 
     delays = fc["customer_delays"]
     for inv in company.open_invoices():
@@ -342,14 +380,14 @@ def root_cause_chain(company: Company, fc: Dict[str, Any], plan: Dict[str, Any] 
         return []
     chain: List[Dict[str, str]] = []
     for e in fc["events"]:
-        if "LC refusal risk" in e.get("basis", ""):
+        if "on hold" in e.get("basis", ""):
             inv = company.invoice(e["source"])
-            chk = check_shipment(company, inv.shipment_id)
-            d = chk["discrepancies"][0]
-            chain.append({"kind": "cause", "title": f"{d['label']} typo on {inv.shipment_id}",
-                          "detail": f"B/L {d['bl_display']} vs shipping instruction {d['si_display']}"})
-            chain.append({"kind": "effect", "title": "Bank refuses the LC presentation",
-                          "detail": f"{inv.id} ({inv.currency} {inv.amount:,.0f}) slips to {nice(e['date'])}"})
+            m = three_way_match(company, inv.id)
+            what = (f"{m['discrepancies'][0]['label']}: {m['discrepancies'][0]['detail']}" if m["discrepancies"]
+                    else f"fixed and re-sent ({m.get('note')})")
+            chain.append({"kind": "cause", "title": f"Typo on invoice {inv.id}", "detail": what})
+            chain.append({"kind": "effect", "title": "Customer's accounts team holds payment",
+                          "detail": f"{inv.currency} {inv.amount:,.0f} slips to {nice(e['date'])}"})
             break
     doubtful = fc["excluded"]
     if doubtful:
@@ -357,8 +395,12 @@ def root_cause_chain(company: Company, fc: Dict[str, Any], plan: Dict[str, Any] 
                       "detail": ", ".join(x["source"] for x in doubtful)})
     chain.append({"kind": "impact", "title": f"Cash below your floor from {nice(fc['first_buffer_breach'])}",
                   "detail": f"low point RM {fc['trough']['balance']:,.0f} on {nice(fc['trough']['date'])}; gap RM {fc['funding_gap']:,.0f}"})
+    for inv in company.open_invoices():
+        if inv.order_id and inv.lines and three_way_match(company, inv.id)["status"] == "MISMATCH":
+            chain.append({"kind": "fix", "title": f"Send a corrected {inv.id} today",
+                          "detail": "matches the PO; shortens the customer's hold from ~21 to ~14 days"})
     if plan and plan.get("recommended_plan"):
-        chain.append({"kind": "fix", "title": "Cheapest on-time fix",
+        chain.append({"kind": "fix", "title": "Bridge the rest, cheapest first",
                       "detail": " + ".join(f"{x['name']} RM {x['amount']:,.0f}" for x in plan["recommended_plan"])
                                 + f" (≈RM {plan['plan_total_cost']:,.0f})"})
     return chain

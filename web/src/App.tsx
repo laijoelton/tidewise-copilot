@@ -1,4 +1,4 @@
-import { Activity, Banknote, Bot, CheckSquare, FileSearch, HeartPulse, Inbox, LayoutDashboard, LineChart, ShieldCheck } from 'lucide-react'
+import { Activity, Banknote, Bot, CheckSquare, ClipboardList, FileCheck2, HeartPulse, Inbox, LayoutDashboard, LineChart, ShieldCheck } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { cx } from './components/ui'
 import { api } from './lib/api'
@@ -7,7 +7,9 @@ import ActivityPage from './pages/Activity'
 import Approvals from './pages/Approvals'
 import Cash from './pages/Cash'
 import Copilot from './pages/Copilot'
-import Documents from './pages/Documents'
+import Invoices from './pages/Invoices'
+import Orders from './pages/Orders'
+import Portal from './pages/Portal'
 import Financing from './pages/Financing'
 import Health from './pages/Health'
 import InboxPage from './pages/Inbox'
@@ -19,8 +21,9 @@ const NAV: { page: Page; label: string; icon: ComponentType<{ size?: number }> }
   { page: 'copilot', label: 'Copilot', icon: Bot },
   { page: 'approvals', label: 'Approvals', icon: CheckSquare },
   { page: 'cash', label: 'Cash flow', icon: LineChart },
+  { page: 'orders', label: 'Orders & bookings', icon: ClipboardList },
+  { page: 'invoices', label: 'Invoice check', icon: FileCheck2 },
   { page: 'financing', label: 'Financing', icon: Banknote },
-  { page: 'documents', label: 'Trade documents', icon: FileSearch },
   { page: 'inbox', label: 'Inbox guard', icon: Inbox },
   { page: 'health', label: 'Business health', icon: HeartPulse },
   { page: 'security', label: 'Security', icon: ShieldCheck },
@@ -39,12 +42,17 @@ export default function App() {
     approvals: <Approvals />,
     cash: <Cash />,
     financing: <Financing />,
-    documents: <Documents />,
+    orders: <Orders go={go} />,
+    invoices: <Invoices />,
+    portal: <Portal go={go} />,
     inbox: <InboxPage />,
     health: <Health />,
     security: <Security />,
     activity: <ActivityPage />,
   }[page]
+
+  if (page === 'portal')
+    return <div className="min-h-full px-4 py-9 sm:px-10">{view}</div>
 
   return (
     <div className="min-h-full">

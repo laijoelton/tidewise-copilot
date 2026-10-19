@@ -24,7 +24,7 @@ export default function Activity() {
                     <tr key={r.ref + r.at}>
                       <td className="mono text-[12px] text-brand">{r.ref}</td>
                       <td>{r.op.replaceAll('_', ' ')}</td>
-                      <td className="text-[12px] text-ink3">{r.bill_id || r.about || r.product || r.shipment_id || ''} {r.amount_myr ? `RM ${r.amount_myr.toLocaleString()}` : r.disbursed ? `RM ${r.disbursed.toLocaleString()}` : ''} {r.to || ''}</td>
+                      <td className="text-[12px] text-ink3">{r.bill_id || r.about || r.product || r.order_id || r.invoice_id || ''} {r.amount_myr ? `RM ${r.amount_myr.toLocaleString()}` : r.disbursed ? `RM ${r.disbursed.toLocaleString()}` : ''} {r.to || ''}</td>
                     </tr>
                   ))}
                 </tbody>

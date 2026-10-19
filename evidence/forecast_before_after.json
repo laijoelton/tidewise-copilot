@@ -3,29 +3,34 @@
     "cash_myr": 125804.0,
     "trough": {
       "date": "2026-11-01",
-      "balance": -40390.0
+      "balance": -32020.0
     },
-    "funding_gap": 100390.0,
+    "funding_gap": 92020.0,
     "first_buffer_breach": "2026-10-26",
     "alerts": [
       "Account goes negative on 26 Oct",
-      "Gross weight (kg) mismatch on SHP-311 puts USD 38,600 at risk",
+      "INV-2041 doesn't match Vanderhoek Interiors BV's purchase order",
       "INV-2032 from Oakline Trading LLC is 74 days overdue",
+      "Deposit of MYR 8,370 not yet received for ORD-320",
+      "3 new booking(s) waiting for a decision",
       "INV-2038 from Northwind Home Ltd is 14 days overdue",
-      "Vanderhoek Interiors BV is 45% of what you're owed",
+      "Vanderhoek Interiors BV is 46% of what you're owed",
       "94% of receivables are in foreign currency"
     ]
   },
   "after": {
-    "cash_myr": 121754.0,
+    "cash_myr": 113754.0,
     "trough": {
-      "date": "2026-10-15",
-      "balance": 118554.0
+      "date": "2026-10-12",
+      "balance": 113754.0
     },
     "funding_gap": 0.0,
     "first_buffer_breach": null,
     "alerts": [
       "INV-2032 from Oakline Trading LLC is 74 days overdue",
+      "Deposit of MYR 8,370 not yet received for ORD-320",
+      "Deposit of USD 2,796 not yet received for ORD-322",
+      "Deposit of USD 11,085 not yet received for ORD-323",
       "INV-2038 from Northwind Home Ltd is 14 days overdue",
       "Vanderhoek Interiors BV is 45% of what you're owed",
       "94% of receivables are in foreign currency"

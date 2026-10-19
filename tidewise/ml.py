@@ -49,7 +49,7 @@ LABELS = ["benign", "payment_fraud", "prompt_injection"]
 # ---------------------------------------------------------------------------------
 _NAMES = ["Hutan Lestari", "PortLink", "Kemas Packaging", "Northwind", "Kiyomi", "Harbour & Hearth", "Oakline",
           "Rumah Indah", "Johor Rattan", "Lacquer Pro", "Vanderhoek", "Siam Timber", "Delta Freight"]
-_DOCS = ["INV-2041", "INV-2038", "BILL-771", "BILL-773", "PO-5521", "SHP-311", "SI-309", "Q-118"]
+_DOCS = ["INV-2041", "INV-2038", "BILL-771", "BILL-773", "PO-5521", "PO-7781", "ORD-318", "Q-118"]
 
 
 def _fill(t: str, r: random.Random) -> str:
@@ -63,7 +63,7 @@ def _fill(t: str, r: random.Random) -> str:
 # evaluation, so the reported accuracy measures generalisation, not memory.
 BENIGN = [
     "Please find attached invoice {d} for this month's delivery. Payment terms 30 days as usual.",
-    "Hi, the draft B/L for {d} is attached for your approval before we release originals.",
+    "Hi, the order confirmation for {d} is attached for your approval before production starts.",
     "We have scheduled payment of {d} in our {day} payment run to your account on file.",
     "Remittance advice: {d} paid today, amount RM {amt}, to your usual account.",
     "Could you send a quotation for 2 x 40HC of rattan chairs, delivery in March?",
@@ -95,7 +95,7 @@ BENIGN_HELDOUT = [
     "We received the goods for {d} in good condition, payment to follow per terms.",
     "Sila ambil perhatian, pejabat kami ditutup pada {day}.",
     "请确认{d}的集装箱数量，谢谢。",
-    "The forwarder confirmed the corrected B/L for {d} will be issued {day}.",
+    "Our warehouse confirmed the delivery note for {d} will be signed {day}.",
     "Can we move our call about {d} to {day} afternoon?",
 ]
 FRAUD = [
@@ -291,8 +291,9 @@ class PaymentAnomaly:
                 n += 1
                 txs.append(Transaction(f"T{n}", start + timedelta(days=7 * k + s), "A", -base * float(r.lognormal(0, 0.18)),
                                        "cogs", f"Supplier {s}"))
-        co = Co(date(2026, 10, 1), Profile("x", "x", "x", "MY", 5, 1e6, "B", False, "x"),
-                [Account("A", "a", "MYR", 1e9)], txs, [], [], [], [], [], 0)
+        co = Co(as_of=date(2026, 10, 1), profile=Profile("x", "x", "x", "MY", 5, 1e6, "B", False, "x"),
+                accounts=[Account("A", "a", "MYR", 1e9)], transactions=txs, invoices=[], bills=[], payees=[],
+                recurring=[], orders=[], deliveries=[], catalogue=[], cash_buffer_myr=0)
         m = PaymentAnomaly(co)
         normal_items, attack_items = [], []
         when = date(2026, 10, 1)
@@ -313,7 +314,7 @@ class PaymentAnomaly:
 # 3. Collection risk
 # ---------------------------------------------------------------------------------
 FEATURES = ["customer_mean_delay", "customer_delay_std", "prior_invoices", "amount_vs_usual",
-            "days_overdue", "reminders_sent", "is_lc"]
+            "days_overdue", "reminders_sent", "paid_deposit"]
 
 
 def _simulate_portfolio(n_customers: int, seed: int):
@@ -323,22 +324,27 @@ def _simulate_portfolio(n_customers: int, seed: int):
         reliability = r.beta(2, 2)                   # latent: 1 = always on time
         mean_delay = (1 - reliability) * 45 + r.normal(0, 3)
         std = 3 + (1 - reliability) * 15
-        is_lc = int(r.rand() < 0.2)
+        paid_deposit = int(r.rand() < 0.2)
         usual = r.uniform(5_000, 60_000)
         history = list(r.normal(mean_delay, std, size=r.randint(3, 13)))
         for _ in range(r.randint(3, 10)):
             amount = usual * r.lognormal(0, 0.4)
             observed_at = r.randint(-20, 60)         # days past due when we score it
             stress = 8 * max(0, math.log(amount / usual))
-            final = r.normal(mean_delay + stress - (12 if is_lc else 0), std)
+            final = r.normal(mean_delay + stress - (12 if paid_deposit else 0), std)
             if final < observed_at:                  # already paid by the time we'd score it
                 continue
             reminders = int(max(0, observed_at) // 14)
             X.append([np.mean(history), np.std(history), len(history), amount / usual,
-                      max(0, observed_at), reminders, is_lc])
+                      max(0, observed_at), reminders, paid_deposit])
             y.append(int(final > 30))
             history.append(final)
     return np.array(X), np.array(y)
+
+
+def _paid_deposit(company: Company, inv: Invoice) -> int:
+    o = company.order(inv.order_id) if inv.order_id else None
+    return int(bool(o and o.deposit_paid > 0))
 
 
 class CollectionRisk:
@@ -351,7 +357,7 @@ class CollectionRisk:
         delays = [(i.paid_on - i.due).days for i in paid] or [0]
         usual = float(np.mean([to_base(i.amount, i.currency) for i in paid])) if paid else to_base(inv.amount, inv.currency)
         return [float(np.mean(delays)), float(np.std(delays)), len(paid), to_base(inv.amount, inv.currency) / usual,
-                max(0, (company.as_of - inv.due).days), inv.reminders_sent, int(inv.terms == "LC")]
+                max(0, (company.as_of - inv.due).days), inv.reminders_sent, _paid_deposit(company, inv)]
 
     def score(self, company: Company, inv: Invoice) -> float:
         return round(float(self.model.predict_proba([self.features(company, inv)])[0][1]), 3)

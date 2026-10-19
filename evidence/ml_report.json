@@ -6,11 +6,11 @@
         "false_alarm_rate": 0.0
       },
       "model_only": {
-        "threat_recall": 0.963,
+        "threat_recall": 0.931,
         "false_alarm_rate": 0.013
       },
       "rules_plus_model": {
-        "threat_recall": 0.963,
+        "threat_recall": 0.931,
         "false_alarm_rate": 0.013
       }
     },
@@ -58,7 +58,7 @@
       "amount_vs_usual": 0.046,
       "days_overdue": 0.229,
       "reminders_sent": 0.002,
-      "is_lc": 0.056
+      "paid_deposit": 0.056
     }
   },
   "note": "All models are trained on synthetic data with a fixed seed. Scores add signal; deterministic policy remains the final decision-maker."
