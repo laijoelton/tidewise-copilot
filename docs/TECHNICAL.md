@@ -14,9 +14,10 @@ Covers: system architecture, core algorithms and security design. The [security 
 
 | Layer | Module | Responsibility |
 |---|---|---|
-| Domain | `tidewise/models.py`, `tidewise/data.py` | Company, accounts, ledger, invoices (AR), bills (AP), payees, shipments, inbox. Demo data is deterministic (seeded) and fictional. |
-| Engine | `tidewise/engine/` | `documents.py` (multi-format loader, document-type detection); `extractor.py` (7 shipping fields with line-level evidence; optional vision for scans); `reconciler.py` (entity/port normalisation, field comparison); `merkle.py` (Merkle-chained log); `ratelimit.py`. |
-| Perception | `tidewise/trade_docs.py` | SI vs B/L check; translates a discrepancy into its payment consequence under a letter of credit. |
+| Domain | `tidewise/models.py`, `tidewise/data.py` | Company, accounts, ledger, customer orders, delivery notes, invoices (AR), bills (AP), payees, product catalogue, inbox. Demo data is deterministic (seeded) and fictional. |
+| Engine | `tidewise/engine/` | `merkle.py` (Merkle-chained log with domain-separated hashes and inclusion proofs); `ratelimit.py`. |
+| Perception | `tidewise/matching.py` | Three-way match of PO, delivery note and invoice; the hold a mismatch causes; the corrected invoice. |
+| | `tidewise/bookings.py` | Customer bookings: screening, identity, ML credit risk, deposit, capacity. |
 | | `tidewise/guard.py` | Inbound screening: verified senders, lookalike and homoglyph domains, payment redirection (BEC), prompt injection (English, Malay, Chinese, hidden markup), masking. |
 | Reasoning | `tidewise/cashflow.py` | 13-week daily forecast, alerts, what-if simulator, root-cause chain. |
 | | `tidewise/analysis.py` | Margins, DSO/DPO, liquidity, runway, trend, insights. |
@@ -24,9 +25,9 @@ Covers: system architecture, core algorithms and security design. The [security 
 | Agency | `tidewise/agent.py` | Routing, read tools, what-if parsing, autopilot playbook, propose → decide → execute/queue/block, approvals, replies. |
 | | `tidewise/llm.py` | Optional Gemini: intent fallback and reply wording, behind a number-grounding check. |
 | Control | `tidewise/policy.py` | T0–T4 tiers, per-action checks, owner limits, provenance/taint, autonomy budget, kill switch, step-up. |
-| Execution | `tidewise/sandbox.py` | Sandbox bank: pay, FX, messages, financing, supplier terms, simulated forwarder. |
+| Execution | `tidewise/sandbox.py` | Sandbox bank: pay, FX, messages, financing, supplier terms, corrected invoices, booking confirmations, simulated customer actions. |
 | Assurance | `tidewise/audit.py` | Audit trail over the Merkle log: inclusion proofs, verification, export. |
-| | `tidewise/redteam.py` | 25 attack scenarios against the real code. |
+| | `tidewise/redteam.py` | 28 attack scenarios against the real code. |
 | Learning | `tidewise/ml.py` | Inbound threat classifier, payment anomaly detector, collection-risk predictor — signals that can only escalate. |
 | Interface | `api/main.py`, `web/` | FastAPI with two channels (conversation, owner); React 19 UI with 10 pages. |
 
@@ -51,21 +52,19 @@ Approvals arrive on a separate API route that requires the owner token header. T
 
 ## 3. Core algorithms
 
-### 3.1 Trade-document check → cash consequence
+### 3.1 Three-way match → cash consequence (`tidewise/matching.py`)
 
-- **Extraction.** The SI and B/L texts are parsed by the deterministic extractor. It handles header/colon, dotted-leader and dash/pipe layouts. Each value keeps its 1-indexed source line and snippet. Placeholders ("N/A", "TBA", "____") are flagged, never guessed.
-- **Reconciliation.** The reconciler normalises entities and ports, then compares the 7 canonical fields:
-  - entities: `SDN. BHD.` = `SDN BHD`, `L.L.C.` = `LLC`;
-  - ports: `PORT KELANG` = `PORT KLANG`, and city-plus-country forms;
-  - `SAME AS CONSIGNEE`.
+Business customers pay an invoice only after their accounts team has matched it to their purchase order (agreed quantities and prices) and the signed delivery note (what arrived). Tidewise runs the same check on its own invoices first.
 
-  It returns `OK`, `MISMATCH` or `NEEDS_REVIEW`. `NEEDS_REVIEW` covers a wrong document type, a missing document, an unreadable document and a missing value.
-- **Consequence.** If the invoice behind the shipment is on **LC terms** and any field conflicts, the presentation will be refused (UCP 600 Art. 14(d)). The receivable is then delayed by `LC_DISCREPANCY_DELAY_DAYS = 21`, which covers the refusal notice, carrier amendment, re-presentation and bank examination (up to 5 banking days each under Art. 14(b)). This number is an assumption and is configurable.
+- **Per line, by SKU:** an item invoiced but not ordered; invoiced quantity ≠ ordered; invoiced quantity > delivered; unit price outside a 0.5% tolerance of the PO price. Currency is checked too.
+- **Statuses:** `MATCHED`, `MISMATCH`, `AWAITING_APPROVAL` (corrected invoice sent), `NO_ORDER`.
+- **Consequence:** an unresolved mismatch delays the receipt by `HOLD_DAYS_UNRESOLVED = 21` days (dispute, correction, re-approval, next payment run). After a corrected invoice is sent, the delay is `HOLD_DAYS_CORRECTION_SENT = 14` days, until the customer approves it. Both are assumptions, shown as the "basis" on the forecast line.
+- **Correction:** `draft_correction` writes the corrected invoice at the PO's quantities and prices. Sending it is a T1 action, and the policy requires the new total to equal the PO total exactly.
 
 ### 3.2 Cash-flow forecast (`cashflow.forecast`)
 
 1. **Customer payment behaviour.** Over six months of paid invoices, `delay_c = mean(paid_on − due)` per customer.
-2. **Expected receipt date** = `due + round(delay_c)` (+21 days if LC-blocked). If that date is already in the past but the invoice is still collectible, the receipt is assumed within 3 days.
+2. **Expected receipt date** = `due + round(delay_c)`, plus the hold if the invoice fails the three-way match (21 days, or 14 once corrected). If that date is already in the past but the invoice is still collectible, the receipt is assumed within 3 days.
 3. **Doubtful.** An invoice more than 30 days past its customer's own norm is excluded from cash and listed separately, never silently counted.
 4. **Outflows.** Open bills (on their due date), recurring items (rent, loan, utilities, payroll on their day of month) and lender repayments.
 5. **Beyond the books' visibility** (day ≥ 35), weekly run-rates are added: trailing-90-day sales × 0.85 haircut, and materials plus logistics. These rows are labelled `projected`.
@@ -94,13 +93,28 @@ It returns the baseline and scenario trough, gap, breach date and closing balanc
 
 When there is a gap, the chain walks from cause to fix:
 1. **Cause:** the document discrepancy.
-2. **Effects:** the delayed LC receivable, and any doubtful receivables left out.
+2. **Effects:** the customer's accounts team holding the invoice, and any doubtful receivables left out.
 3. **Impact:** the breach date and trough.
 4. **Fix:** the cheapest on-time financing plan.
 
 The owner sees *why*, not just *what*.
 
-### 3.5 Business analysis (`analysis.analyse`)
+### 3.5 Customer bookings (`tidewise/bookings.py`)
+
+Customers book orders through a portal (`POST /api/bookings`). Each booking is assessed before anyone commits factory capacity:
+
+| Step | What happens |
+|---|---|
+| Screening | Booking notes are external content: same guard as email (rules + ML threat classifier). Quarantined → declined. |
+| Identity | Known customer *and* booked from the registered contact? A known name from a new address goes to the owner; a look-alike domain is quarantined. |
+| Credit | ML collection-risk model on the customer's own history; new customers start at a cautious 50%. |
+| Deposit | 30% (risk < 20%), 40% (< 50%), 50% (higher, or new customer). |
+| Capacity | Each product's weekly output against everything already in the order book → earliest ready date vs requested delivery. |
+| Prices | Always from our catalogue, never from the form. |
+
+Confirming a booking is a T2 action only for a known customer with low risk, ≤ RM 50k, enough capacity and at least the recommended deposit. Anything else is T3, and a quarantined booking can't be confirmed at all (T4). Confirmed orders add their deposit, and any balance inside the visible horizon, to the forecast.
+
+### 3.6 Business analysis (`analysis.analyse`)
 
 Computed over a 90-day window from the ledger (FX sweeps excluded):
 
@@ -116,12 +130,13 @@ Computed over a 90-day window from the ledger (FX sweeps excluded):
 
 Insights are rule-based readings of these numbers.
 
-### 3.6 Financing matching (`financing.match`)
+### 3.7 Financing matching (`financing.match`)
 
 For each catalogue product:
 1. **Eligibility checks** against the business's own data: years trading, revenue, credit band and collateral, plus product-specific capacity:
    - **Invoice financing:** open-account invoices, not overdue, due within 90 days, buyer country eligible, ≥ RM 20k, not already pledged. 80% advance.
-   - **LC discounting:** only complying presentations. A document discrepancy fails this check, and the reason is shown.
+   - **Invoice financing** also leaves out any invoice that fails the three-way match, and says why.
+   - **Purchase-order financing:** 60% of confirmed orders whose deposit is paid, from known customers; repaid from the order's balance.
    - **Supplier extension:** the largest open bill due within 3 weeks from a supplier paid at least 12 times in 6 months (`supplier_extension_candidate`).
    - **Credit lines and loans:** limit = % of revenue, capped.
 2. **Timing:** `funds_by = as_of + max(days_to_fund)`; `on_time = funds_by ≤ need_by`.
@@ -132,11 +147,11 @@ For each catalogue product:
 
 When a product is executed in the sandbox:
 - **Invoice financing** pledges only as many invoices as the advance needs, latest-due first, and books the lender repayment as a dated outflow, so the forecast stays honest.
-- **LC discounting** sells the receivable: it is removed from future inflows.
+- **Purchase-order financing** books its repayment for the orders' balance date.
 
-### 3.7 Inbound guard (`guard.scan`)
+### 3.8 Inbound guard (`guard.scan`)
 
-- **Sender verification.** The domain must equal a registered counterparty domain (payees, customer AR contacts, forwarder).
+- **Sender verification.** The domain must equal a registered counterparty domain (payees, customer AR contacts).
 - **Homoglyph check.** The domain is normalised (NFKC plus a confusables map for Cyrillic, Greek and digit look-alikes, `rn→m`). If its skeleton equals a registered domain's but the domain itself differs, that is critical. Punycode (`xn--`) and non-ASCII domains are also critical.
 - **Lookalike check.** Edit distance ≤ 3 on the first label, containment, or a display name claiming a registered party. Display-name impersonation of well-known carriers is also flagged.
 - **Hidden content.** HTML comments, `display:none` / zero-size spans and zero-width characters are counted, removed from display, and flagged.
@@ -151,7 +166,7 @@ When a product is executed in the sandbox:
 - Any critical finding quarantines the message, and its id is added to `policy.quarantined_sources`.
 - **Masking.** Account numbers and IBANs are masked before display, logging or any model call.
 
-### 3.8 Policy evaluation (`policy.Policy.evaluate`)
+### 3.9 Policy evaluation (`policy.Policy.evaluate`)
 
 ```
 tier = BASE_TIER[action.type]                       (unknown type → T4)
@@ -168,24 +183,27 @@ outcome = blocked if T4 or any hard check failed
 Per-action checks:
 - **`pay_bill`:** bill exists, unpaid, approved when booked; payee verified; account override equals the verified account (else T4); per-payment limit RM 10k; daily auto limit RM 25k (tracked per calendar day); not paying more than 5 days early; funds available.
 - **`send_reminder`:** invoice open; recipient equals the registered AR contact (else T4); 7-day cooldown.
-- **`send_amendment_request`:** recipient equals the registered forwarder.
+- **`send_corrected_invoice`:** a mismatch exists, the new total equals the PO total, recipient is the registered AR contact (else T4).
+- **`request_deposit`:** deposit outstanding; registered contact.
+- **`confirm_booking`:** screening clean (else T4); known customer from the contact on file, ML risk ≤ 30%, ≤ RM 50k, capacity, deposit ≥ recommended — otherwise T3.
+- **`decline_booking`:** T1 if the booking was quarantined, else T3.
 - **`fx_convert`:** funds available; ≤ USD 5k auto.
 - **`apply_financing`, `request_supplier_extension`:** always T3.
 - **`add_payee`, `change_payee_bank`, `transfer_external`, `change_limits`:** always T4.
 
-### 3.9 Sandbox bank
+### 3.10 Sandbox bank
 
 - **Idempotency.** Every operation takes a key, `sha256(type, params, as_of)`. A replay returns the original receipt with `status: duplicate_ignored`.
 - **Re-validation.** The bank re-checks open/unpaid, payee verified and non-negative balance on its own, independent of the policy.
 - **Receipts.** Each receipt is `SBX-` + 10 hex digits, and each one is appended to the operations log (JSONL).
 
-### 3.10 Audit trail
+### 3.11 Audit trail
 
 - **Hashing.** Leaves are SHA-256 hashes of `leaf:` + canonical JSON. Nodes are hashes of `node:` + left + right, and an odd node is paired with itself.
 - **Chaining.** Each sealed batch stores `prev_root`, so the batches form a chain.
 - **Verification.** `verify()` checks the chain and every record's inclusion proof. Any record's proof can be checked on its own, from the UI or `/api/audit/receipt/{id}`.
 
-### 3.11 Machine-learning risk models (`tidewise/ml.py`)
+### 3.12 Machine-learning risk models (`tidewise/ml.py`)
 
 The three models are trained locally on synthetic data with a fixed seed. Each **adds a signal** on top of the deterministic controls: it can quarantine or escalate, but it can never make anything more permissive. `python -m tidewise.ml` prints the held-out evaluation, which is also in `evidence/ml_report.json` and on the Security page.
 
@@ -207,7 +225,7 @@ The three models are trained locally on synthetic data with a fixed seed. Each *
 - **Test:** on 240 normal payments and 240 injected anomalies (3–10× or 0.1–0.3× usual size), it catches 100% with 0.4% false alarms.
 
 **3. Collection-risk predictor**
-- **Model:** gradient boosting on a simulated SME receivables portfolio, predicting P(paid 30+ days after due). Features: the customer's own mean and standard deviation of delay, number of prior invoices, amount vs usual, days overdue, reminders sent, LC terms.
+- **Model:** gradient boosting on a simulated SME receivables portfolio, predicting P(paid 30+ days after due). Features: the customer's own mean and standard deviation of delay, number of prior invoices, amount vs usual, days overdue, reminders sent, whether a deposit was paid.
 - **Use:** the probability is attached to every forecast receipt (`late_risk`) and shown in overdue alerts.
 - **Test:** on an independent simulated portfolio, ROC AUC 0.88 and Brier score 0.135.
 
@@ -227,10 +245,11 @@ The three models are trained locally on synthetic data with a fixed seed. Each *
 
 | Channel | Endpoints |
 |---|---|
-| Read | `GET /api/overview` (incl. root-cause chain), `/forecast`, `/analysis`, `/documents`, `/financing`, `/inbox`, `/ledger`, `/policy`, `/audit`, `/audit/receipt/{id}`, `/sandbox`, `/approvals` |
+| Read | `GET /api/overview` (incl. root-cause chain), `/forecast`, `/analysis`, `/matching`, `/orders`, `/financing`, `/inbox`, `/ledger`, `/policy`, `/audit`, `/audit/receipt/{id}`, `/sandbox`, `/approvals` |
 | Conversation | `POST /api/chat` (max 2,000 chars), `POST /api/whatif` (bounded inputs) |
 | Owner (needs `X-Owner-Token`) | `POST /api/approvals/{id}/approve` (`confirm_amount` for step-up), `/reject`, `POST /api/autonomy` (kill switch), `POST /api/reset` |
-| Demo controls | `POST /api/simulate/forwarder-reply`, `POST /api/redteam` |
+| Customer channel | `POST /api/bookings` (validated; prices from our catalogue; notes screened) |
+| Demo controls | `POST /api/simulate/customer-approves`, `POST /api/simulate/deposit`, `POST /api/redteam` |
 
 Hardening:
 - per-IP rate limit (60 req/s);
@@ -240,7 +259,7 @@ Hardening:
 
 ## 6. Testing
 
-`python run_tests.py` runs **68 tests**:
+`python run_tests.py` runs **71 tests**:
 - **`test_tidewise.py`:**
   - document checks, forecast, analysis and financing;
   - guard, policy and the agent loop end to end;
@@ -254,7 +273,7 @@ Hardening:
 - **`test_ml.py`:** held-out quality thresholds for all three models; demo inbox scores; a paraphrase quarantined by the model alone; a padded bill escalated; collection-risk ranking.
 - **`test_engine.py`:** extraction with evidence, placeholders, unreadable scans, reconciliation, the loader, the Merkle chain and tampering, and the rate limiter.
 
-`python -m tidewise.redteam` prints the 25 attack outcomes; `python -m tidewise.ml` prints the model evaluation. `python scripts/generate_evidence.py` regenerates `evidence/`.
+`python -m tidewise.redteam` prints the 28 attack outcomes; `python -m tidewise.ml` prints the model evaluation. `python scripts/generate_evidence.py` regenerates `evidence/`.
 
 ## 7. Limitations and next steps
 
@@ -263,4 +282,4 @@ Hardening:
 - **Persistent multi-user state:** each workspace is currently in-memory.
 - **Bring-your-own data:** CSV and bank-statement import.
 - **Email authentication:** SPF/DKIM/DMARC verification from real headers.
-- **Scanned documents:** the vision path exists in the extractor, but the demo uses text documents.
+- **Accounting integrations:** read POs, delivery notes and invoices straight from the business's accounting or e-invoicing system.

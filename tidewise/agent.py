@@ -474,7 +474,7 @@ class Agent:
                     bill = financing.supplier_extension_candidate(c)[0]
                     self.propose(Action("request_supplier_extension", {"bill_id": bill.id, "days": 30, "surcharge": 0.015},
                                         "books", rationale=f"cheapest on-time option: moves RM {bill.amount:,.0f} past the gap "
-                                                           f"for ~RM {p['cost']:,.0f}"), steps)
+                                                           f"for a 1.5% surcharge (~RM {bill.amount * 0.015:,.0f})"), steps)
                 else:
                     self.propose(Action("apply_financing", {"product_id": p["id"], "amount": p["amount"]}, "books",
                                         rationale=f"{p['name']}: funds by {p['funds_by']}, est. cost RM {p['cost']:,.0f}"),
