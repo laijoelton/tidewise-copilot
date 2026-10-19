@@ -8,7 +8,7 @@ import { Check, Outcome, TierBadge, cx } from './ui'
 export function Steps({ steps }: { steps: Json[] }) {
   return (
     <div className="flex flex-col gap-1.5">
-      {steps.map((s, i) => <StepRow key={i} s={s} />)}
+      {steps.filter((s) => s.kind !== 'note').map((s, i) => <StepRow key={i} s={s} />)}
     </div>
   )
 }
@@ -27,7 +27,7 @@ function StepRow({ s }: { s: Json }) {
 
   const d = s.decision
   return (
-    <div className={cx('rounded-lg border bg-canvas/40', d.outcome === 'blocked' ? 'border-bad/30' : 'border-edge/60')}>
+    <div className={cx('rounded-lg border bg-card', d.outcome === 'blocked' ? 'border-bad/30' : 'border-edge/60')}>
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px]">
         <ChevronRight size={14} className={cx('shrink-0 text-ink3 transition-transform', open && 'rotate-90')} />
         <TierBadge tier={d.tier} />
@@ -43,7 +43,7 @@ function StepRow({ s }: { s: Json }) {
           <div className="mb-1 text-[12px] text-ink3">{d.tier_label} · provenance: {s.provenance}</div>
           {d.checks.map((c: Json, i: number) => <Check key={i} {...c} />)}
           {s.receipt && (
-            <pre className="num mt-2 overflow-x-auto rounded bg-canvas p-2 text-[11px] text-ink2">{JSON.stringify(s.receipt, null, 2)}</pre>
+            <pre className="mono mt-2 overflow-x-auto rounded bg-canvas p-2 text-[11px] text-ink2">{JSON.stringify(s.receipt, null, 2)}</pre>
           )}
           {s.error && <div className="text-[12px] text-bad">Sandbox error: {s.error}</div>}
         </div>

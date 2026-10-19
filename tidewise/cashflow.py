@@ -26,6 +26,12 @@ RUN_RATE_SALES_HAIRCUT = 0.85
 RUN_RATE_WINDOW_DAYS = 90
 
 
+def nice(iso) -> str:
+    """'2026-10-26' -> '26 Oct' for owner-facing text."""
+    d = iso if isinstance(iso, date) else date.fromisoformat(str(iso))
+    return f"{d.day} {d:%b}"
+
+
 def customer_payment_delays(company: Company) -> Dict[str, float]:
     delays = defaultdict(list)
     for inv in company.invoices:
@@ -193,13 +199,13 @@ def alerts(company: Company, fc: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     if fc["first_negative"]:
         out.append({"severity": "critical", "code": "CASH_SHORTFALL",
-                    "title": f"Account goes negative on {fc['first_negative']}",
-                    "detail": f"Lowest projected balance RM {fc['trough']['balance']:,.0f} on {fc['trough']['date']}. "
+                    "title": f"Account goes negative on {nice(fc['first_negative'])}",
+                    "detail": f"Lowest projected balance RM {fc['trough']['balance']:,.0f} on {nice(fc['trough']['date'])}. "
                               f"RM {fc['funding_gap']:,.0f} needed to stay above your RM {fc['cash_buffer']:,.0f} floor."})
     elif fc["first_buffer_breach"]:
         out.append({"severity": "warning", "code": "BUFFER_BREACH",
-                    "title": f"Cash drops below your RM {fc['cash_buffer']:,.0f} floor on {fc['first_buffer_breach']}",
-                    "detail": f"Lowest projected balance RM {fc['trough']['balance']:,.0f} on {fc['trough']['date']}."})
+                    "title": f"Cash drops below your RM {fc['cash_buffer']:,.0f} floor on {nice(fc['first_buffer_breach'])}",
+                    "detail": f"Lowest projected balance RM {fc['trough']['balance']:,.0f} on {nice(fc['trough']['date'])}."})
 
     for s in company.shipments:
         chk = check_shipment(company, s.id)
@@ -210,7 +216,7 @@ def alerts(company: Company, fc: Dict[str, Any]) -> List[Dict[str, Any]]:
                         "title": f"{d['label']} mismatch on {s.id} puts {inv.currency} {inv.amount:,.0f} at risk",
                         "detail": f"Draft B/L says {d['bl_display']}, shipping instruction says {d['si_display']}. "
                                   f"The bank will refuse the LC presentation; payment slips ~{chk['expected_delay_days']} days "
-                                  f"unless the B/L is amended before {(s.lc_terms or {}).get('presentation_deadline', 'presentation')}.",
+                                  f"unless the B/L is amended before {nice(s.lc_terms['presentation_deadline']) if (s.lc_terms or {}).get('presentation_deadline') else 'presentation'}.",
                         "ref": s.id})
 
     delays = fc["customer_delays"]
@@ -335,15 +341,15 @@ def root_cause_chain(company: Company, fc: Dict[str, Any], plan: Dict[str, Any] 
             d = chk["discrepancies"][0]
             chain.append({"kind": "cause", "title": f"{d['label']} typo on {inv.shipment_id}",
                           "detail": f"B/L {d['bl_display']} vs shipping instruction {d['si_display']}"})
-            chain.append({"kind": "effect", "title": f"Bank refuses the LC presentation",
-                          "detail": f"{inv.id} ({inv.currency} {inv.amount:,.0f}) slips to {e['date']}"})
+            chain.append({"kind": "effect", "title": "Bank refuses the LC presentation",
+                          "detail": f"{inv.id} ({inv.currency} {inv.amount:,.0f}) slips to {nice(e['date'])}"})
             break
     doubtful = fc["excluded"]
     if doubtful:
         chain.append({"kind": "effect", "title": f"{len(doubtful)} doubtful receivable(s) left out",
                       "detail": ", ".join(x["source"] for x in doubtful)})
-    chain.append({"kind": "impact", "title": f"Cash below your floor from {fc['first_buffer_breach']}",
-                  "detail": f"low point RM {fc['trough']['balance']:,.0f} on {fc['trough']['date']}; gap RM {fc['funding_gap']:,.0f}"})
+    chain.append({"kind": "impact", "title": f"Cash below your floor from {nice(fc['first_buffer_breach'])}",
+                  "detail": f"low point RM {fc['trough']['balance']:,.0f} on {nice(fc['trough']['date'])}; gap RM {fc['funding_gap']:,.0f}"})
     if plan and plan.get("recommended_plan"):
         chain.append({"kind": "fix", "title": "Cheapest on-time fix",
                       "detail": " + ".join(f"{x['name']} RM {x['amount']:,.0f}" for x in plan["recommended_plan"])

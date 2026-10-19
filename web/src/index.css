@@ -1,29 +1,32 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter";
-@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/fraunces";
 
+/* Warm "ledger paper" palette: off-white paper, deep ink, one forest-green
+   accent. Brick and ochre are reserved for things that need attention. */
 @theme {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace;
+  --font-serif: "Fraunces Variable", ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --color-canvas: #08131a;
-  --color-card: #0d1c25;
-  --color-sub: #132733;
-  --color-edge: #24404f;
-  --color-ink: #eef6f8;
-  --color-ink2: #9db3bd;
-  --color-ink3: #6a8592;
-  --color-brand: #2dd4bf;
-  --color-brand-deep: #14b8a6;
-  --color-sky: #60a5fa;
-  --color-ok: #34d399;
-  --color-warn: #fbbf24;
-  --color-bad: #f87171;
-  --color-t0: #94a3b8;
-  --color-t1: #60a5fa;
-  --color-t2: #34d399;
-  --color-t3: #fbbf24;
-  --color-t4: #f87171;
+  --color-canvas: #f5f1e8;
+  --color-card: #fffdf8;
+  --color-sub: #efe9dc;
+  --color-edge: #ddd4c2;
+  --color-ink: #1d1b16;
+  --color-ink2: #4f493e;
+  --color-ink3: #857c6b;
+  --color-brand: #1f5a43;
+  --color-brand-deep: #174634;
+  --color-sky: #2f5d86;
+  --color-ok: #2f7a4f;
+  --color-warn: #a96a12;
+  --color-bad: #b13f2c;
+  --color-t0: #857c6b;
+  --color-t1: #2f5d86;
+  --color-t2: #2f7a4f;
+  --color-t3: #a96a12;
+  --color-t4: #b13f2c;
 }
 
 @layer base {
@@ -33,11 +36,15 @@
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-size: 14px;
-    line-height: 1.5;
+    line-height: 1.55;
     -webkit-font-smoothing: antialiased;
+    font-feature-settings: "tnum" 1, "cv11" 1;
   }
-  * { scrollbar-width: thin; scrollbar-color: #24404f transparent; }
-  ::selection { background: rgba(45, 212, 191, 0.28); }
+  h1, h2, .serif { font-family: var(--font-serif); font-optical-sizing: auto; letter-spacing: -0.01em; }
+  h1 { font-weight: 600; }
+  h2 { font-weight: 600; }
+  * { scrollbar-width: thin; scrollbar-color: #cfc5b1 transparent; }
+  ::selection { background: rgba(31, 90, 67, 0.18); }
   :focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; border-radius: 6px; }
   button { cursor: pointer; }
   button:disabled { cursor: not-allowed; opacity: 0.5; }
@@ -46,35 +53,39 @@
 @layer components {
   .panel {
     background: var(--color-card);
-    border: 1px solid rgba(157, 179, 189, 0.13);
-    border-radius: 12px;
+    border: 1px solid var(--color-edge);
+    border-radius: 14px;
+    box-shadow: 0 1px 0 rgba(29, 27, 22, 0.03), 0 8px 24px -18px rgba(29, 27, 22, 0.25);
   }
   .eyebrow {
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-ink3);
   }
-  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+  .mono { font-family: var(--font-mono); }
   .btn {
     display: inline-flex; align-items: center; gap: 6px;
-    border-radius: 8px; padding: 7px 12px; font-weight: 500; font-size: 13px;
-    border: 1px solid rgba(157, 179, 189, 0.2); background: var(--color-sub); color: var(--color-ink);
-    transition: background 0.15s, border-color 0.15s;
+    border-radius: 999px; padding: 7px 14px; font-weight: 500; font-size: 13px;
+    border: 1px solid var(--color-edge); background: var(--color-card); color: var(--color-ink);
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
   }
-  .btn:hover:not(:disabled) { border-color: rgba(157, 179, 189, 0.4); }
-  .btn-primary { background: var(--color-brand-deep); border-color: transparent; color: #04211d; font-weight: 600; }
-  .btn-primary:hover:not(:disabled) { background: var(--color-brand); }
+  .btn:hover:not(:disabled) { border-color: var(--color-ink3); background: #fff; }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+  .btn-primary { background: var(--color-brand); border-color: var(--color-brand); color: #fbf8f1; }
+  .btn-primary:hover:not(:disabled) { background: var(--color-brand-deep); border-color: var(--color-brand-deep); }
   .btn-danger { color: var(--color-bad); }
   .input {
-    width: 100%; border-radius: 8px; padding: 8px 12px; font-size: 13px;
-    background: var(--color-canvas); border: 1px solid rgba(157, 179, 189, 0.2); color: var(--color-ink);
+    width: 100%; border-radius: 10px; padding: 8px 12px; font-size: 13.5px;
+    background: #fff; border: 1px solid var(--color-edge); color: var(--color-ink);
   }
-  .input:focus { outline: none; border-color: var(--color-brand); }
+  .input:focus { outline: none; border-color: var(--color-brand); box-shadow: 0 0 0 3px rgba(31, 90, 67, 0.12); }
   table.data { width: 100%; border-collapse: collapse; }
-  table.data th { text-align: left; font-weight: 600; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-ink3); padding: 8px 10px; border-bottom: 1px solid rgba(157,179,189,0.13); }
-  table.data td { padding: 9px 10px; border-bottom: 1px solid rgba(157,179,189,0.07); vertical-align: top; }
+  table.data th { text-align: left; font-weight: 600; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-ink3); padding: 8px 10px; border-bottom: 1px solid var(--color-edge); }
+  table.data td { padding: 9px 10px; border-bottom: 1px solid #ece5d6; vertical-align: top; }
+  table.data tr:last-child td { border-bottom: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

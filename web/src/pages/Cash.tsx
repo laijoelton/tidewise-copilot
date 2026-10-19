@@ -1,4 +1,4 @@
-import { CashChart } from '../components/CashChart'
+import { WhatIf } from '../components/WhatIf'
 import { Badge, Loading, PageHead, Panel } from '../components/ui'
 import { api, rm, shortDate, type Json } from '../lib/api'
 import { useLoad } from '../lib/hooks'
@@ -11,9 +11,7 @@ export default function Cash() {
   return (
     <>
       <PageHead title="Cash flow" sub="Receipts are dated by how each customer actually pays (their 6-month average delay), not the invoice due date. Beyond what's booked, the forecast uses run-rates with a 15% sales haircut." />
-      <Panel title="13-week forecast">
-        <CashChart weekly={fc.weekly} buffer={fc.cash_buffer} height={320} />
-      </Panel>
+      <WhatIf weekly={fc.weekly} buffer={fc.cash_buffer} customers={Object.keys(fc.customer_delays).sort()} />
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.4fr_1fr]">
         <Panel title="Booked cash movements">

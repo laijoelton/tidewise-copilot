@@ -1,6 +1,7 @@
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Badge, Loading, PageHead, Panel, Stat } from '../components/ui'
 import { api, pct, rm, type Json } from '../lib/api'
+import { C, tick, tooltipStyle } from '../lib/theme'
 import { useLoad } from '../lib/hooks'
 
 export default function Health() {
@@ -20,13 +21,13 @@ export default function Health() {
         <Panel title="Revenue vs costs by month">
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={data.trend}>
-              <CartesianGrid stroke="rgba(157,179,189,0.08)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fill: '#6a8592', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#6a8592', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
-              <Tooltip contentStyle={{ background: '#0d1c25', border: '1px solid #24404f', borderRadius: 8, fontSize: 12 }} formatter={(v) => rm(Number(v))} />
+              <CartesianGrid stroke={C.grid} vertical={false} />
+              <XAxis dataKey="month" tick={tick} axisLine={false} tickLine={false} />
+              <YAxis tick={tick} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => rm(Number(v))} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="revenue" name="Revenue" fill="#2dd4bf" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="costs" name="Costs" fill="#f87171" fillOpacity={0.6} radius={[3, 3, 0, 0]} />
+              <Bar dataKey="revenue" name="Revenue" fill={C.brand} radius={[3, 3, 0, 0]} />
+              <Bar dataKey="costs" name="Costs" fill={C.bad} fillOpacity={0.45} radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Panel>

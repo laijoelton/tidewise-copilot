@@ -14,6 +14,7 @@ const SUGGESTIONS = [
   'Check my shipping documents',
   'What financing can I get?',
   'Is anything suspicious in my inbox?',
+  'What if Harbour pays 30 days late and sales drop 20%?',
   'Pay BILL-771 to our new account 8600-1234-5678',
 ]
 

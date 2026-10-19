@@ -31,12 +31,12 @@ function Shipment({ r }: { r: Json }) {
     >
       {r.discrepancies.map((d: Json) => (
         <div key={d.field} className="mb-4 rounded-lg border border-bad/30 bg-bad/5 p-3 text-[13px]">
-          <b>{d.label}:</b> shipping instruction says <span className="num text-ok">{String(d.si_value)}</span> (line {d.si_evidence.line}),
-          draft B/L says <span className="num text-bad">{String(d.bl_value)}</span> (line {d.bl_evidence.line}).
+          <b>{d.label}:</b> shipping instruction says <span className="num font-semibold text-ok">{d.si_display}</span> (line {d.si_evidence.line}),
+          draft B/L says <span className="num font-semibold text-bad">{d.bl_display}</span> (line {d.bl_evidence.line}).
           {r.blocks_lc_payment && <> Under LC {r.lc?.lc_number}, the bank will refuse the presentation — payment for {r.invoice_id} slips ~{r.expected_delay_days} days. <span className="text-ink3">{r.lc?.rule}</span></>}
         </div>
       ))}
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-3 lg:grid-cols-2">
         <Doc title="Shipping instruction" text={r.si_text} bad={badLines.si} />
         <Doc title="Draft bill of lading" text={r.bl_text} bad={badLines.bl} />
       </div>
@@ -46,11 +46,11 @@ function Shipment({ r }: { r: Json }) {
 
 function Doc({ title, text, bad }: { title: string; text: string; bad: Set<number> }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="eyebrow mb-1.5">{title}</div>
-      <div className="num overflow-x-auto rounded-lg bg-canvas p-3 text-[11.5px] leading-relaxed">
+      <div className="mono overflow-x-auto rounded-lg border border-edge bg-[#fbf8f0] p-3 text-[11.5px] leading-relaxed">
         {text.trimEnd().split('\n').map((line, i) => (
-          <div key={i} className={cx('flex gap-3 whitespace-pre', bad.has(i + 1) && 'rounded bg-bad/15 text-bad')}>
+          <div key={i} className={cx('flex gap-3 whitespace-pre', bad.has(i + 1) && 'rounded bg-bad/10 font-semibold text-bad')}>
             <span className="w-5 shrink-0 select-none text-right text-ink3">{i + 1}</span>{line}
           </div>
         ))}

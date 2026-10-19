@@ -1,8 +1,8 @@
-import { Play } from 'lucide-react'
+import { Pause, Play } from 'lucide-react'
 import { useState } from 'react'
 import { Badge, Loading, PageHead, Panel, TierBadge } from '../components/ui'
 import { api, rm, type Json } from '../lib/api'
-import { useLoad } from '../lib/hooks'
+import { bump, useLoad } from '../lib/hooks'
 
 const TIERS = [
   ['T0 · read', 'Look at books, forecast, analyse, check documents', 'Automatic'],
@@ -22,7 +22,9 @@ export default function Security() {
   return (
     <>
       <PageHead title="Security" sub="The agent proposes; deterministic policy decides. The model is never asked whether an action is safe, never sees raw external content, and cannot approve anything." />
-      <div className="grid gap-4 xl:grid-cols-2">
+      <KillSwitch paused={policy.paused} />
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <Panel title="Permission tiers">
           <table className="data">
             <thead><tr><th>Tier</th><th>Scope</th><th>Who decides</th></tr></thead>
@@ -50,7 +52,7 @@ export default function Security() {
         action={<button className="btn btn-primary" disabled={busy} onClick={async () => { setBusy(true); setReport(await api.redteam()); setBusy(false) }}>
           <Play size={14} /> {busy ? 'Running…' : 'Run attacks now'}</button>}>
         {!report ? (
-          <p className="text-ink3">Runs {17} attack scenarios — invoice-redirection fraud, hidden prompt injection, duplicate and split payments, data exfiltration, self-escalation, approval bypass, audit tampering — each against a fresh copy of the real policy, sandbox and audit code.</p>
+          <p className="text-ink3">Runs 23 attack scenarios — invoice-redirection fraud (incl. look-alike Unicode domains), hidden and non-English prompt injection, duplicate and split payments, data exfiltration, self-escalation, approval bypass, audit tampering invented numbers in model output, kill switch — each against a fresh copy of the real policy, sandbox and audit code.</p>
         ) : (
           <>
             <div className="mb-3 text-[15px]"><span className="num font-semibold text-ok">{report.passed}/{report.total}</span> attacks handled as expected</div>
@@ -70,5 +72,30 @@ export default function Security() {
         )}
       </Panel>
     </>
+  )
+}
+
+function KillSwitch({ paused }: { paused: boolean }) {
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  async function toggle() {
+    setBusy(true); setErr(null)
+    try { await api.setPaused(!paused); bump() } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
+  }
+  return (
+    <div className={`panel flex flex-wrap items-center gap-4 p-5 ${paused ? '!border-warn/50 !bg-warn/8' : ''}`}>
+      <div className="flex-1">
+        <h2 className="text-[18px]">{paused ? 'Autonomy is paused' : 'Kill switch'}</h2>
+        <p className="mt-1 text-[13px] text-ink2">
+          {paused
+            ? 'Every action — even a reminder — now waits for your approval. Reading, forecasting and analysis still work.'
+            : 'One click stops all autonomous actions. Tidewise keeps reading and proposing, but nothing runs until you approve it. Owner token required.'}
+        </p>
+        {err && <p className="mt-1 text-[12.5px] text-bad">{err} — set your owner token on the Approvals page.</p>}
+      </div>
+      <button className={paused ? 'btn btn-primary' : 'btn btn-danger !border-bad/40'} disabled={busy} onClick={toggle}>
+        {paused ? <><Play size={14} /> Resume autonomy</> : <><Pause size={14} /> Pause all autonomy</>}
+      </button>
+    </div>
   )
 }

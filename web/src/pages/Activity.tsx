@@ -22,7 +22,7 @@ export default function Activity() {
                 <tbody>
                   {[...sb.log].reverse().map((r: Json) => (
                     <tr key={r.ref + r.at}>
-                      <td className="num text-[12px] text-brand">{r.ref}</td>
+                      <td className="mono text-[12px] text-brand">{r.ref}</td>
                       <td>{r.op.replaceAll('_', ' ')}</td>
                       <td className="text-[12px] text-ink3">{r.bill_id || r.about || r.product || r.shipment_id || ''} {r.amount_myr ? `RM ${r.amount_myr.toLocaleString()}` : r.disbursed ? `RM ${r.disbursed.toLocaleString()}` : ''} {r.to || ''}</td>
                     </tr>
@@ -36,7 +36,7 @@ export default function Activity() {
           {sb.outbox.length === 0 ? <Empty>No messages sent.</Empty> : (
             <div className="flex max-h-[420px] flex-col gap-3 overflow-y-auto">
               {sb.outbox.map((m: Json, i: number) => (
-                <details key={i} className="rounded-lg border border-edge/50 bg-canvas/40 p-3">
+                <details key={i} className="rounded-lg border border-edge bg-canvas/50 p-3">
                   <summary className="cursor-pointer text-[13px]"><span className="text-ink3">to {m.to}</span> — {m.subject}</summary>
                   <pre className="mt-2 whitespace-pre-wrap text-[12px] text-ink2">{m.body}</pre>
                 </details>
@@ -68,7 +68,7 @@ export default function Activity() {
           <div>
             <div className="eyebrow mb-2">Inclusion proof (click a record)</div>
             {receipt ? (
-              <div className="num rounded-lg bg-canvas p-3 text-[11px] text-ink2">
+              <div className="mono rounded-lg border border-edge bg-[#fbf8f0] p-3 text-[11px] text-ink2">
                 <div className={receipt.verified ? 'text-ok' : 'text-bad'}>{receipt.verified ? '✓ proof verifies against root' : '✕ proof failed'}</div>
                 <div className="mt-2 break-all">leaf {receipt.leaf_hash}</div>
                 {receipt.proof.map(([side, h]: [string, string], i: number) => <div key={i} className="break-all text-ink3">{side} {h}</div>)}
