@@ -61,7 +61,9 @@ Full design: **[docs/TECHNICAL.md](docs/TECHNICAL.md)**.
 
 ---
 
-## Security in one table
+## Security: the ten-gate pipeline
+
+Outside content (emails, booking notes) passes **G1 Front door → G2 Sender identity → G3 Content rules → G4 ML threat score** and gets a trust label. Every action then passes **G5 Provenance → G6 Business rules → G7 Limits → G8 ML risk check → G9 Owner channel → G10 Execute & seal**. Each gate can pass, send to the owner, or stop; every action in the app shows its own path through the gates, and the Security page draws the whole pipeline with live counts. Details: [security self-assessment §3](docs/SECURITY_SELF_ASSESSMENT.md).
 
 | Layer | What it does |
 |---|---|
@@ -158,7 +160,7 @@ Optional: put `GEMINI_API_KEY` in `.env` (see `.env.example`) and Gemini will ph
 python run_tests.py
 ```
 
-This runs 71 tests covering the agent loop, policy, sandbox, guard, ML models, three-way match, bookings, forecast, what-if, financing, red team and the Merkle log.
+This runs 75 tests covering the agent loop, policy, sandbox, guard, ML models, three-way match, bookings, forecast, what-if, financing, red team and the Merkle log.
 
 ```bash
 python -m tidewise.redteam

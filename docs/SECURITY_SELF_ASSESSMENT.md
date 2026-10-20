@@ -30,7 +30,26 @@ Scope: the Tidewise agent, policy, sandbox bank, inbound guard, audit trail, API
 | History tampering | Someone edits the log to hide an action | Merkle-chained batches and per-record inclusion proofs |
 | Privilege escalation | The agent raises its own limits or adds a payee | Limits and payees are owner-only (T4 for the agent) |
 
-## 3. Permission-tier implementation
+## 3. The ten-gate pipeline
+
+All controls below are arranged as one ordered pipeline (`tidewise/pipeline.py`). Outside content passes G1–G4 and gets a trust label; every action then passes G5–G10.
+
+| Gate | Lane | What it does | What it stops | Code |
+|---|---|---|---|---|
+| **G1 Front door** | inbound | Rate limit per caller; strict schemas on every request | Floods, oversized or malformed input, forged prices on bookings | `api/main.py` |
+| **G2 Sender identity** | inbound | Sender vs registered counterparties; look-alike and homoglyph domains | Fake suppliers and customers | `guard.py` |
+| **G3 Content rules** | inbound | Prompt injection (EN/MS/ZH), hidden markup, bank-detail changes; masking | “Ignore your instructions…”, “pay our new account” | `guard.py` |
+| **G4 ML threat score** | inbound | Text classifier, tested on unseen phrasings | Paraphrased attacks the rules miss | `ml.py` |
+| **G5 Provenance** | action | Who asked: owner, books, outside content, quarantined content | Anything built from quarantined content; outside requests auto-running | `policy.py` |
+| **G6 Business rules** | action | Real unpaid bill, verified payee, registered recipient, PO match, capacity | Double payments, changed bank details, exfiltration, inflated invoices | `policy.py` |
+| **G7 Limits** | action | Per-payment, daily, FX and booking caps; autonomy budget; kill switch | Split payments, runaway loops | `policy.py` |
+| **G8 ML risk check** | action | Payment anomaly vs payee history; customer credit risk | Padded bills under the limit; risky customers | `ml.py` |
+| **G9 Owner channel** | action | Owner token, step-up above RM 50k, 48 h expiry, re-check at execution | “Approve all” in chat or email; blind or stale approvals | `agent.py`, `api/main.py` |
+| **G10 Execute & seal** | action | Idempotent sandbox bank re-validates; Merkle-chained audit seal | Replays, overdrafts, silent edits to history | `sandbox.py`, `audit.py` |
+
+Every proposed action gets a gate-by-gate trace (`pipeline.trace`): **pass**, **escalate** (to the owner), **waiting** (for the owner), **stop**, or **skip** (not applicable). The trace is shown on every Copilot action and approval card, its summary is sealed into the audit log, and the Security page shows live counts per gate. Each red-team attack is mapped to the gate that catches it first (`redteam.CAUGHT_AT`).
+
+## 3b. Permission-tier implementation
 
 Implemented in `tidewise/policy.py`. Every action the agent proposes is evaluated before anything executes; there is no code path from the agent to the sandbox bank that bypasses `Policy.evaluate`.
 
@@ -89,7 +108,7 @@ Implemented in `tidewise/policy.py`. Every action the agent proposes is evaluate
 | RT-27 | “Correction” that raises the invoice above the PO | blocked ✓ |
 | RT-28 | Booking under a known customer’s name from a look-alike address | blocked ✓ |
 
-The unit suite (71 tests) also asserts each tier's behaviour directly (`tests/test_tidewise.py`, `tests/test_features.py`).
+The unit suite (75 tests) also asserts each tier's behaviour directly (`tests/test_tidewise.py`, `tests/test_features.py`).
 
 ## 5. Data protection
 

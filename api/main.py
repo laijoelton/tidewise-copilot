@@ -227,6 +227,30 @@ def ledger():
     }
 
 
+@app.get("/api/pipeline")
+def security_pipeline():
+    """The ten gates, plus live counts of what each gate stopped or escalated so far."""
+    from tidewise import pipeline
+    stats = {g["id"]: {"stop": 0, "escalate": 0, "pass": 0, "waiting": 0} for g in pipeline.GATES}
+    for r in ws.audit.records:
+        if r["kind"] == "gates":
+            for i, st in enumerate(r["data"]["statuses"], 1):
+                if st in stats[i]:
+                    stats[i][st] += 1
+    for s in ws.scans.values():                  # inbox items screened at gates 2-4
+        for gid, kinds in ((2, pipeline.SENDER), (3, pipeline.CONTENT), (4, {"ml_threat"})):
+            if any(f.check in kinds and f.severity == "critical" for f in s.findings):
+                stats[gid]["stop"] += 1
+            else:
+                stats[gid]["pass"] += 1
+    attacks = {g["id"]: [] for g in pipeline.GATES}
+    for sc in redteam.SCENARIOS:
+        gid = redteam.CAUGHT_AT.get(sc["id"])
+        if gid:
+            attacks[gid].append({"id": sc["id"], "name": sc["name"]})
+    return {"gates": pipeline.GATES, "stats": stats, "attacks": attacks}
+
+
 @app.get("/api/policy")
 def policy():
     return {"limits": ws.policy.limits.__dict__, "paused": ws.policy.paused,

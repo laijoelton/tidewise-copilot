@@ -32,6 +32,7 @@ export const api = {
   inbox: () => call('/api/inbox'),
   ledger: () => call('/api/ledger'),
   policy: () => call('/api/policy'),
+  pipeline: () => call('/api/pipeline'),
   audit: () => call('/api/audit'),
   receipt: (id: number) => call(`/api/audit/receipt/${id}`),
   sandbox: () => call('/api/sandbox'),

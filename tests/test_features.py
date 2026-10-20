@@ -118,3 +118,38 @@ class TestGrounding(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPipeline(unittest.TestCase):
+    """The ten-gate trace attached to every proposed action."""
+
+    def _statuses(self, step):
+        return {g["id"]: g["status"] for g in step["gates"]}
+
+    def test_fake_supplier_stopped_at_sender_identity_and_beyond(self):
+        ws = Workspace(use_llm=False)
+        step = ws.agent.propose(Action("pay_bill", {"bill_id": "BILL-771", "account_number": "8600-1234-5678"},
+                                       "external", source_ref="MSG-02"), [])
+        st = self._statuses(step)
+        self.assertEqual(st[2], "stop")
+        self.assertEqual(st[10], "skip")
+        from tidewise.pipeline import stopped_at
+        self.assertEqual(stopped_at(step["gates"]), 2)
+
+    def test_small_bill_passes_all_relevant_gates_and_is_sealed(self):
+        ws = Workspace(use_llm=False)
+        st = self._statuses(ws.agent.propose(Action("pay_bill", {"bill_id": "BILL-774"}, "books"), []))
+        self.assertEqual((st[1], st[5], st[6], st[7], st[8], st[10]), ("pass",) * 6)
+        self.assertEqual(st[9], "skip")
+
+    def test_large_bill_waits_at_owner_gate_then_passes(self):
+        ws = Workspace(use_llm=False)
+        step = ws.agent.propose(Action("pay_bill", {"bill_id": "BILL-772"}, "books"), [])
+        self.assertEqual(self._statuses(step)[9], "waiting")
+        ws.agent.approve(step["approval_id"], "owner")
+        st = {g["id"]: g["status"] for g in ws.approvals[step["approval_id"]]["gates"]}
+        self.assertEqual((st[9], st[10]), ("pass", "pass"))
+
+    def test_every_red_team_attack_is_mapped_to_a_gate(self):
+        from tidewise.redteam import CAUGHT_AT, SCENARIOS
+        self.assertEqual({s["id"] for s in SCENARIOS}, set(CAUGHT_AT))

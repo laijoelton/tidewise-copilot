@@ -76,8 +76,8 @@ Heads-up
 
 ## Owner approvals (owner channel, not chat)
 
-- Approved APR-3862DCF5 — Confirm booking ORD-323 from Coastal Living Co (USD 22,170, 50% deposit) → `SBX-6BCA234C89` (step-up: amount re-typed)
-- Approved APR-97136085 — Ask Hutan Lestari Timber Sdn Bhd to move BILL-771 (RM 96,000) by 30 days → `SBX-837BFBB193` (step-up: amount re-typed)
+- Approved APR-A47B636A — Confirm booking ORD-323 from Coastal Living Co (USD 22,170, 50% deposit) → `SBX-6BCA234C89` (step-up: amount re-typed)
+- Approved APR-87F1494F — Ask Hutan Lestari Timber Sdn Bhd to move BILL-771 (RM 96,000) by 30 days → `SBX-837BFBB193` (step-up: amount re-typed)
 
 ## Owner: “Pay BILL-771 to our new account 8600-1234-5678”
 
@@ -133,4 +133,4 @@ Order book & bookings
 
 ## Audit
 
-- 62 records in 11 sealed batches; chain intact: True; all inclusion proofs valid: True
+- 75 records in 11 sealed batches; chain intact: True; all inclusion proofs valid: True

@@ -4,7 +4,7 @@
       "id": 0,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "text": "How is my cash looking for the next few weeks?"
       }
@@ -13,7 +13,7 @@
       "id": 1,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "tool": "cash_forecast",
         "summary": "Opening RM 125,804; low point RM -32,020 on 2026-11-01; gap to floor RM 92,020"
@@ -23,7 +23,7 @@
       "id": 2,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "text": "Is anything suspicious in my inbox?"
       }
@@ -32,7 +32,7 @@
       "id": 3,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "tool": "screen_inbox",
         "summary": "4 messages screened; 2 quarantined (MSG-02, MSG-04)"
@@ -42,7 +42,7 @@
       "id": 4,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "text": "Show me my order book and new bookings"
       }
@@ -51,7 +51,7 @@
       "id": 5,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "tool": "order_book",
         "summary": "2 orders in the book, 3 new booking(s) to assess"
@@ -61,7 +61,7 @@
       "id": 6,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "text": "What should I do this week?"
       }
@@ -70,7 +70,7 @@
       "id": 7,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "tool": "screen_inbox",
         "summary": "4 messages screened; 2 quarantined (MSG-02, MSG-04)"
@@ -80,7 +80,7 @@
       "id": 8,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "tool": "three_way_match",
         "summary": "2 invoices matched to PO and delivery note; 1 mismatched (INV-2041)"
@@ -90,7 +90,7 @@
       "id": 9,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "send_corrected_invoice",
         "params": {
@@ -109,7 +109,7 @@
       "id": 10,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "send_corrected_invoice",
         "tier": 1,
@@ -152,7 +152,7 @@
       "id": 11,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "send_corrected_invoice",
         "ref": "SBX-C989BE0A1F",
@@ -161,19 +161,41 @@
     },
     {
       "id": 12,
+      "kind": "gates",
+      "actor": "pipeline",
+      "at": "2026-10-20T13:43:35",
+      "data": {
+        "type": "send_corrected_invoice",
+        "stopped_at": null,
+        "statuses": [
+          "pass",
+          "skip",
+          "skip",
+          "skip",
+          "pass",
+          "pass",
+          "pass",
+          "skip",
+          "skip",
+          "pass"
+        ]
+      }
+    },
+    {
+      "id": 13,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "tool": "order_book",
         "summary": "2 orders in the book, 3 new booking(s) to assess"
       }
     },
     {
-      "id": 13,
+      "id": 14,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "confirm_booking",
         "params": {
@@ -188,10 +210,10 @@
       }
     },
     {
-      "id": 14,
+      "id": 15,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "confirm_booking",
         "tier": 2,
@@ -246,10 +268,10 @@
       }
     },
     {
-      "id": 15,
+      "id": 16,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "confirm_booking",
         "ref": "SBX-037913E6CC",
@@ -257,10 +279,32 @@
       }
     },
     {
-      "id": 16,
+      "id": 17,
+      "kind": "gates",
+      "actor": "pipeline",
+      "at": "2026-10-20T13:43:35",
+      "data": {
+        "type": "confirm_booking",
+        "stopped_at": null,
+        "statuses": [
+          "pass",
+          "pass",
+          "pass",
+          "pass",
+          "pass",
+          "pass",
+          "pass",
+          "pass",
+          "skip",
+          "pass"
+        ]
+      }
+    },
+    {
+      "id": 18,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "confirm_booking",
         "params": {
@@ -275,10 +319,10 @@
       }
     },
     {
-      "id": 17,
+      "id": 19,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "confirm_booking",
         "tier": 3,
@@ -330,20 +374,42 @@
       }
     },
     {
-      "id": 18,
+      "id": 20,
       "kind": "queued_for_approval",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
-        "approval_id": "APR-3862DCF5",
+        "approval_id": "APR-A47B636A",
         "type": "confirm_booking"
       }
     },
     {
-      "id": 19,
+      "id": 21,
+      "kind": "gates",
+      "actor": "pipeline",
+      "at": "2026-10-20T13:43:35",
+      "data": {
+        "type": "confirm_booking",
+        "stopped_at": null,
+        "statuses": [
+          "pass",
+          "pass",
+          "pass",
+          "pass",
+          "pass",
+          "escalate",
+          "escalate",
+          "escalate",
+          "waiting",
+          "skip"
+        ]
+      }
+    },
+    {
+      "id": 22,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "decline_booking",
         "params": {
@@ -356,10 +422,10 @@
       }
     },
     {
-      "id": 20,
+      "id": 23,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "decline_booking",
         "tier": 1,
@@ -389,10 +455,10 @@
       }
     },
     {
-      "id": 21,
+      "id": 24,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "decline_booking",
         "ref": "SBX-4272CA1D48",
@@ -400,10 +466,32 @@
       }
     },
     {
-      "id": 22,
+      "id": 25,
+      "kind": "gates",
+      "actor": "pipeline",
+      "at": "2026-10-20T13:43:35",
+      "data": {
+        "type": "decline_booking",
+        "stopped_at": 3,
+        "statuses": [
+          "pass",
+          "pass",
+          "stop",
+          "stop",
+          "pass",
+          "skip",
+          "pass",
+          "skip",
+          "skip",
+          "pass"
+        ]
+      }
+    },
+    {
+      "id": 26,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "request_deposit",
         "params": {
@@ -418,10 +506,10 @@
       }
     },
     {
-      "id": 23,
+      "id": 27,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "request_deposit",
         "tier": 1,
@@ -456,10 +544,10 @@
       }
     },
     {
-      "id": 24,
+      "id": 28,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "request_deposit",
         "ref": "SBX-B48DDE97AA",
@@ -467,10 +555,32 @@
       }
     },
     {
-      "id": 25,
+      "id": 29,
+      "kind": "gates",
+      "actor": "pipeline",
+      "at": "2026-10-20T13:43:35",
+      "data": {
+        "type": "request_deposit",
+        "stopped_at": null,
+        "statuses": [
+          "pass",
+          "skip",
+          "skip",
+          "skip",
+          "pass",
+          "pass",
+          "pass",
+          "skip",
+          "skip",
+          "pass"
+        ]
+      }
+    },
+    {
+      "id": 30,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "request_deposit",
         "params": {
@@ -485,10 +595,10 @@
       }
     },
     {
-      "id": 26,
+      "id": 31,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "request_deposit",
         "tier": 1,
@@ -523,10 +633,10 @@
       }
     },
     {
-      "id": 27,
+      "id": 32,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "request_deposit",
         "ref": "SBX-58832040C9",
@@ -534,20 +644,42 @@
       }
     },
     {
-      "id": 28,
+      "id": 33,
+      "kind": "gates",
+      "actor": "pipeline",
+      "at": "2026-10-20T13:43:35",
+      "data": {
+        "type": "request_deposit",
+        "stopped_at": null,
+        "statuses": [
+          "pass",
+          "skip",
+          "skip",
+          "skip",
+          "pass",
+          "pass",
+          "pass",
+          "skip",
+          "skip",
+          "pass"
+        ]
+      }
+    },
+    {
+      "id": 34,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "tool": "cash_forecast",
         "summary": "Opening RM 125,804; low point RM -19,662 on 2026-11-01; gap to floor RM 79,662"
       }
     },
     {
-      "id": 29,
+      "id": 35,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "send_reminder",
         "params": {
@@ -562,10 +694,10 @@
       }
     },
     {
-      "id": 30,
+      "id": 36,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "send_reminder",
         "tier": 1,
@@ -600,10 +732,10 @@
       }
     },
     {
-      "id": 31,
+      "id": 37,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "send_reminder",
         "ref": "SBX-81311BECD7",
@@ -611,10 +743,32 @@
       }
     },
     {
-      "id": 32,
+      "id": 38,
+      "kind": "gates",
+      "actor": "pipeline",
+      "at": "2026-10-20T13:43:35",
+      "data": {
+        "type": "send_reminder",
+        "stopped_at": null,
+        "statuses": [
+          "pass",
+          "skip",
+          "skip",
+          "skip",
+          "pass",
+          "pass",
+          "pass",
+          "skip",
+          "skip",
+          "pass"
+        ]
+      }
+    },
+    {
+      "id": 39,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "send_reminder",
         "params": {
@@ -629,10 +783,10 @@
       }
     },
     {
-      "id": 33,
+      "id": 40,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "send_reminder",
         "tier": 1,
@@ -667,10 +821,10 @@
       }
     },
     {
-      "id": 34,
+      "id": 41,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "send_reminder",
         "ref": "SBX-F121073F59",
@@ -678,10 +832,32 @@
       }
     },
     {
-      "id": 35,
+      "id": 42,
+      "kind": "gates",
+      "actor": "pipeline",
+      "at": "2026-10-20T13:43:35",
+      "data": {
+        "type": "send_reminder",
+        "stopped_at": null,
+        "statuses": [
+          "pass",
+          "skip",
+          "skip",
+          "skip",
+          "pass",
+          "pass",
+          "pass",
+          "skip",
+          "skip",
+          "pass"
+        ]
+      }
+    },
+    {
+      "id": 43,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-19T23:03:09",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "pay_bill",
         "params": {
@@ -693,10 +869,10 @@
       }
     },
     {
-      "id": 36,
+      "id": 44,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "pay_bill",
         "tier": 2,
@@ -766,10 +942,10 @@
       }
     },
     {
-      "id": 37,
+      "id": 45,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "pay_bill",
         "ref": "SBX-A24DB2F568",
@@ -777,10 +953,32 @@
       }
     },
     {
-      "id": 38,
+      "id": 46,
+      "kind": "gates",
+      "actor": "pipeline",
+      "at": "2026-10-20T13:43:35",
+      "data": {
+        "type": "pay_bill",
+        "stopped_at": null,
+        "statuses": [
+          "pass",
+          "skip",
+          "skip",
+          "skip",
+          "pass",
+          "pass",
+          "pass",
+          "pass",
+          "skip",
+          "pass"
+        ]
+      }
+    },
+    {
+      "id": 47,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "pay_bill",
         "params": {
@@ -792,10 +990,10 @@
       }
     },
     {
-      "id": 39,
+      "id": 48,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "pay_bill",
         "tier": 2,
@@ -865,10 +1063,10 @@
       }
     },
     {
-      "id": 40,
+      "id": 49,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "pay_bill",
         "ref": "SBX-C98CC57A70",
@@ -876,20 +1074,42 @@
       }
     },
     {
-      "id": 41,
+      "id": 50,
+      "kind": "gates",
+      "actor": "pipeline",
+      "at": "2026-10-20T13:43:35",
+      "data": {
+        "type": "pay_bill",
+        "stopped_at": null,
+        "statuses": [
+          "pass",
+          "skip",
+          "skip",
+          "skip",
+          "pass",
+          "pass",
+          "pass",
+          "pass",
+          "skip",
+          "pass"
+        ]
+      }
+    },
+    {
+      "id": 51,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "tool": "match_financing",
         "summary": "Need RM 79,662 by 2026-10-26; plan: Supplier terms extension RM 83,000"
       }
     },
     {
-      "id": 42,
+      "id": 52,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "request_supplier_extension",
         "params": {
@@ -903,10 +1123,10 @@
       }
     },
     {
-      "id": 43,
+      "id": 53,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "request_supplier_extension",
         "tier": 3,
@@ -936,22 +1156,44 @@
       }
     },
     {
-      "id": 44,
+      "id": 54,
       "kind": "queued_for_approval",
       "actor": "agent",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
-        "approval_id": "APR-97136085",
+        "approval_id": "APR-87F1494F",
         "type": "request_supplier_extension"
       }
     },
     {
-      "id": 45,
+      "id": 55,
+      "kind": "gates",
+      "actor": "pipeline",
+      "at": "2026-10-20T13:43:35",
+      "data": {
+        "type": "request_supplier_extension",
+        "stopped_at": null,
+        "statuses": [
+          "pass",
+          "skip",
+          "skip",
+          "skip",
+          "pass",
+          "pass",
+          "skip",
+          "skip",
+          "waiting",
+          "skip"
+        ]
+      }
+    },
+    {
+      "id": 56,
       "kind": "approved",
       "actor": "owner",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
-        "approval_id": "APR-3862DCF5",
+        "approval_id": "APR-A47B636A",
         "action": {
           "type": "confirm_booking",
           "params": {
@@ -967,10 +1209,10 @@
       }
     },
     {
-      "id": 46,
+      "id": 57,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "confirm_booking",
         "ref": "SBX-6BCA234C89",
@@ -978,12 +1220,12 @@
       }
     },
     {
-      "id": 47,
+      "id": 58,
       "kind": "approved",
       "actor": "owner",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
-        "approval_id": "APR-97136085",
+        "approval_id": "APR-87F1494F",
         "action": {
           "type": "request_supplier_extension",
           "params": {
@@ -998,10 +1240,10 @@
       }
     },
     {
-      "id": 48,
+      "id": 59,
       "kind": "executed",
       "actor": "sandbox",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "request_supplier_extension",
         "ref": "SBX-837BFBB193",
@@ -1009,19 +1251,19 @@
       }
     },
     {
-      "id": 49,
+      "id": 60,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "text": "Pay BILL-771 to our new account ****-5678"
       }
     },
     {
-      "id": 50,
+      "id": 61,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "pay_bill",
         "params": {
@@ -1034,10 +1276,10 @@
       }
     },
     {
-      "id": 51,
+      "id": 62,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "pay_bill",
         "tier": 4,
@@ -1082,10 +1324,10 @@
       }
     },
     {
-      "id": 52,
+      "id": 63,
       "kind": "blocked",
       "actor": "policy",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "code": "ACTION_BLOCKED",
         "type": "pay_bill",
@@ -1096,28 +1338,50 @@
       }
     },
     {
-      "id": 53,
+      "id": 64,
+      "kind": "gates",
+      "actor": "pipeline",
+      "at": "2026-10-20T13:43:35",
+      "data": {
+        "type": "pay_bill",
+        "stopped_at": 6,
+        "statuses": [
+          "pass",
+          "skip",
+          "skip",
+          "skip",
+          "pass",
+          "stop",
+          "skip",
+          "skip",
+          "skip",
+          "skip"
+        ]
+      }
+    },
+    {
+      "id": 65,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "text": "Approve all pending items"
       }
     },
     {
-      "id": 54,
+      "id": 66,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "text": "Raise my auto-payment limit to RM 100,000"
       }
     },
     {
-      "id": 55,
+      "id": 67,
       "kind": "proposed",
       "actor": "agent",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "change_limits",
         "params": {
@@ -1129,10 +1393,10 @@
       }
     },
     {
-      "id": 56,
+      "id": 68,
       "kind": "decision",
       "actor": "policy",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "type": "change_limits",
         "tier": 4,
@@ -1157,10 +1421,10 @@
       }
     },
     {
-      "id": 57,
+      "id": 69,
       "kind": "blocked",
       "actor": "policy",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "code": "ACTION_BLOCKED",
         "type": "change_limits",
@@ -1171,39 +1435,61 @@
       }
     },
     {
-      "id": 58,
+      "id": 70,
+      "kind": "gates",
+      "actor": "pipeline",
+      "at": "2026-10-20T13:43:35",
+      "data": {
+        "type": "change_limits",
+        "stopped_at": 6,
+        "statuses": [
+          "pass",
+          "skip",
+          "skip",
+          "skip",
+          "pass",
+          "stop",
+          "skip",
+          "skip",
+          "skip",
+          "skip"
+        ]
+      }
+    },
+    {
+      "id": 71,
       "kind": "external_event",
       "actor": "customer",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "invoice_id": "INV-2041",
         "ref": "SBX-9429DDA98B"
       }
     },
     {
-      "id": 59,
+      "id": 72,
       "kind": "owner_message",
       "actor": "owner",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "text": "Check my invoices against purchase orders"
       }
     },
     {
-      "id": 60,
+      "id": 73,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "tool": "three_way_match",
         "summary": "2 invoices matched to PO and delivery note; 0 mismatched"
       }
     },
     {
-      "id": 61,
+      "id": 74,
       "kind": "read",
       "actor": "agent",
-      "at": "2026-10-19T23:03:10",
+      "at": "2026-10-20T13:43:35",
       "data": {
         "tool": "order_book",
         "summary": "4 orders in the book, 0 new booking(s) to assess"
@@ -1213,41 +1499,41 @@
   "batches": [
     {
       "index": 0,
-      "root": "3c3d84c1fc631a5ec9021c88a12ca62065e5cfab4d0626e24fb36011d566f446",
+      "root": "272efaa24c099214cc590f708d31f17ffe63b4f3c3fd0fdef718c2d2615e83d5",
       "prev_root": "0000000000000000000000000000000000000000000000000000000000000000",
       "entry_ids": [
         0,
         1
       ],
       "size": 2,
-      "sealed_at": 1792422189.7402747
+      "sealed_at": 1792475015.7351918
     },
     {
       "index": 1,
-      "root": "2e64e131f5190a65ea8947511f37a346472e0fe716282bf9a236e1ee2b573e3b",
-      "prev_root": "3c3d84c1fc631a5ec9021c88a12ca62065e5cfab4d0626e24fb36011d566f446",
+      "root": "389f6bc5b9e148c6e5835860814032eb6ceb24753809970c0d258b8e2b5a7505",
+      "prev_root": "272efaa24c099214cc590f708d31f17ffe63b4f3c3fd0fdef718c2d2615e83d5",
       "entry_ids": [
         2,
         3
       ],
       "size": 2,
-      "sealed_at": 1792422189.741505
+      "sealed_at": 1792475015.7351918
     },
     {
       "index": 2,
-      "root": "dd212b68d30136e8681182892d7fc1446dbc4bdcd82d67aebe5e0778ee8adbe5",
-      "prev_root": "2e64e131f5190a65ea8947511f37a346472e0fe716282bf9a236e1ee2b573e3b",
+      "root": "f44f6b8a8ca39af723579e31abaf6e4b1f1db5eddbcaa339c190879e042c9bfd",
+      "prev_root": "389f6bc5b9e148c6e5835860814032eb6ceb24753809970c0d258b8e2b5a7505",
       "entry_ids": [
         4,
         5
       ],
       "size": 2,
-      "sealed_at": 1792422189.7564278
+      "sealed_at": 1792475015.7494369
     },
     {
       "index": 3,
-      "root": "2aea781979bec7c7798f06581c3a0ea609c504baadb12712d79b491f4b05562a",
-      "prev_root": "dd212b68d30136e8681182892d7fc1446dbc4bdcd82d67aebe5e0778ee8adbe5",
+      "root": "7320e013f6afec1e016d74b66feeba2206df9b7f438f0b21d9db6831e684be6b",
+      "prev_root": "f44f6b8a8ca39af723579e31abaf6e4b1f1db5eddbcaa339c190879e042c9bfd",
       "entry_ids": [
         6,
         7,
@@ -1287,97 +1573,110 @@
         41,
         42,
         43,
-        44
-      ],
-      "size": 39,
-      "sealed_at": 1792422190.3758004
-    },
-    {
-      "index": 4,
-      "root": "949a350f73c29fd86b5352966f7376bd634ac9bb4de17059a06de81f80bbc55d",
-      "prev_root": "2aea781979bec7c7798f06581c3a0ea609c504baadb12712d79b491f4b05562a",
-      "entry_ids": [
+        44,
         45,
-        46
-      ],
-      "size": 2,
-      "sealed_at": 1792422190.3758004
-    },
-    {
-      "index": 5,
-      "root": "699c9324c536e9be55045467ef424bc5469c9480a74d345b7ec28f2824fa968f",
-      "prev_root": "949a350f73c29fd86b5352966f7376bd634ac9bb4de17059a06de81f80bbc55d",
-      "entry_ids": [
+        46,
         47,
-        48
-      ],
-      "size": 2,
-      "sealed_at": 1792422190.3758004
-    },
-    {
-      "index": 6,
-      "root": "e3659f15d963c3d2519766e98a846e8caf6210f8fd66137614cefb335946053e",
-      "prev_root": "699c9324c536e9be55045467ef424bc5469c9480a74d345b7ec28f2824fa968f",
-      "entry_ids": [
+        48,
         49,
         50,
         51,
-        52
-      ],
-      "size": 4,
-      "sealed_at": 1792422190.3758004
-    },
-    {
-      "index": 7,
-      "root": "5ae7f9d84df9b65b794bf457ae4905a4de2bafcc0a6fda9912152af9e68c0932",
-      "prev_root": "e3659f15d963c3d2519766e98a846e8caf6210f8fd66137614cefb335946053e",
-      "entry_ids": [
-        53
-      ],
-      "size": 1,
-      "sealed_at": 1792422190.3916223
-    },
-    {
-      "index": 8,
-      "root": "acc56960251f09e7b974412ee04e1b72b7eabcdd4096f16195a57af119019056",
-      "prev_root": "5ae7f9d84df9b65b794bf457ae4905a4de2bafcc0a6fda9912152af9e68c0932",
-      "entry_ids": [
+        52,
+        53,
         54,
-        55,
+        55
+      ],
+      "size": 50,
+      "sealed_at": 1792475015.8574343
+    },
+    {
+      "index": 4,
+      "root": "9c4d5c806c9ecf1b30eb46dd4457b4b0a8098fa5860cecf4d27861df68f96386",
+      "prev_root": "7320e013f6afec1e016d74b66feeba2206df9b7f438f0b21d9db6831e684be6b",
+      "entry_ids": [
         56,
         57
       ],
-      "size": 4,
-      "sealed_at": 1792422190.3916223
+      "size": 2,
+      "sealed_at": 1792475015.8584313
+    },
+    {
+      "index": 5,
+      "root": "cae78bd920217693be88fdaad4e86b413b60cb639f220ae365deaf96dfd777e1",
+      "prev_root": "9c4d5c806c9ecf1b30eb46dd4457b4b0a8098fa5860cecf4d27861df68f96386",
+      "entry_ids": [
+        58,
+        59
+      ],
+      "size": 2,
+      "sealed_at": 1792475015.8584313
+    },
+    {
+      "index": 6,
+      "root": "666f499595878ca2bd633c237b0c9ff9e8d64917d1f327c5a55238a87ff7dc31",
+      "prev_root": "cae78bd920217693be88fdaad4e86b413b60cb639f220ae365deaf96dfd777e1",
+      "entry_ids": [
+        60,
+        61,
+        62,
+        63,
+        64
+      ],
+      "size": 5,
+      "sealed_at": 1792475015.8594391
+    },
+    {
+      "index": 7,
+      "root": "e9a888ca1df948cacf4a6a4b8534c89475562399b46bf01dfda632760307e0c5",
+      "prev_root": "666f499595878ca2bd633c237b0c9ff9e8d64917d1f327c5a55238a87ff7dc31",
+      "entry_ids": [
+        65
+      ],
+      "size": 1,
+      "sealed_at": 1792475015.8594391
+    },
+    {
+      "index": 8,
+      "root": "3dd649386d2a761f3ab1886f9015a12bdcda32e85ed5533e278b8dde5556bd19",
+      "prev_root": "e9a888ca1df948cacf4a6a4b8534c89475562399b46bf01dfda632760307e0c5",
+      "entry_ids": [
+        66,
+        67,
+        68,
+        69,
+        70
+      ],
+      "size": 5,
+      "sealed_at": 1792475015.8594391
     },
     {
       "index": 9,
-      "root": "9817e3dce4a5d9614cc32a7138027c85acd0eda9819be29600e63dd74ab32bc6",
-      "prev_root": "acc56960251f09e7b974412ee04e1b72b7eabcdd4096f16195a57af119019056",
+      "root": "57acf570f2f8f013c4b9a19d9630cc33311d786acba9a3443fa6dc73fc4e1abe",
+      "prev_root": "3dd649386d2a761f3ab1886f9015a12bdcda32e85ed5533e278b8dde5556bd19",
       "entry_ids": [
-        58
+        71
       ],
       "size": 1,
-      "sealed_at": 1792422190.3916223
+      "sealed_at": 1792475015.8594391
     },
     {
       "index": 10,
-      "root": "55a56309ef92851b95275b95b0342dc89b3cc3a7009831ce761aa8a33ccfdaf0",
-      "prev_root": "9817e3dce4a5d9614cc32a7138027c85acd0eda9819be29600e63dd74ab32bc6",
+      "root": "1f770bc2a0bb1d350472c51c6d772361fae2b661d2767462942679fb71d61f0d",
+      "prev_root": "57acf570f2f8f013c4b9a19d9630cc33311d786acba9a3443fa6dc73fc4e1abe",
       "entry_ids": [
-        59,
-        60,
-        61
+        72,
+        73,
+        74
       ],
       "size": 3,
-      "sealed_at": 1792422190.3916223
+      "sealed_at": 1792475015.8594391
     }
   ],
   "verification": {
     "chain_intact": true,
     "all_inclusion_proofs_valid": true,
     "detail": "11 blocks verified, chain intact",
-    "records": 62,
+    "records": 75,
     "batches": 11,
     "pending": 0
   }

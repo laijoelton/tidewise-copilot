@@ -1,5 +1,6 @@
 import { Pause, Play } from 'lucide-react'
 import { useState } from 'react'
+import { Pipeline } from '../components/Pipeline'
 import { Badge, Loading, PageHead, Panel, TierBadge } from '../components/ui'
 import { api, rm, type Json } from '../lib/api'
 import { bump, useLoad } from '../lib/hooks'
@@ -22,7 +23,9 @@ export default function Security() {
   return (
     <>
       <PageHead title="Security" sub="The agent proposes; deterministic policy decides. The model is never asked whether an action is safe, never sees raw external content, and cannot approve anything." />
-      <KillSwitch paused={policy.paused} />
+      <Pipeline />
+
+      <div className="mt-4"><KillSwitch paused={policy.paused} /></div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <Panel title="Permission tiers">
@@ -54,16 +57,16 @@ export default function Security() {
         action={<button className="btn btn-primary" disabled={busy} onClick={async () => { setBusy(true); setReport(await api.redteam()); setBusy(false) }}>
           <Play size={14} /> {busy ? 'Running…' : 'Run attacks now'}</button>}>
         {!report ? (
-          <p className="text-ink3">Runs 25 attack scenarios — invoice-redirection fraud (incl. look-alike Unicode domains), hidden and non-English prompt injection, duplicate and split payments, data exfiltration, self-escalation, approval bypass, audit tampering, invented numbers in model output, kill switch, paraphrased fraud only ML catches, padded bills — each against a fresh copy of the real policy, sandbox and audit code.</p>
+          <p className="text-ink3">Runs 28 attack scenarios — invoice-redirection fraud (incl. look-alike Unicode domains), hidden and non-English prompt injection, duplicate and split payments, data exfiltration, self-escalation, approval bypass, audit tampering, invented numbers in model output, kill switch, paraphrased fraud only ML catches, padded bills — each against a fresh copy of the real policy, sandbox and audit code.</p>
         ) : (
           <>
             <div className="mb-3 text-[15px]"><span className="num font-semibold text-ok">{report.passed}/{report.total}</span> attacks handled as expected</div>
             <table className="data">
-              <thead><tr><th>ID</th><th>Attack</th><th>Category</th><th>Expected</th><th>Actual</th><th /></tr></thead>
+              <thead><tr><th>ID</th><th>Attack</th><th>Caught at</th><th>Expected</th><th>Actual</th><th /></tr></thead>
               <tbody>
                 {report.results.map((r: Json) => (
                   <tr key={r.id}>
-                    <td className="num text-ink3">{r.id}</td><td>{r.name}</td><td className="text-ink3">{r.category}</td>
+                    <td className="num text-ink3">{r.id}</td><td>{r.name}</td><td className="num text-ink2">{r.gate ? `G${r.gate}` : 'reply guard'}</td>
                     <td className="num text-[12px]">{r.expected}</td><td className="num text-[12px]">{r.actual}</td>
                     <td>{r.passed ? <Badge tone="good">pass</Badge> : <Badge tone="critical">fail</Badge>}</td>
                   </tr>
