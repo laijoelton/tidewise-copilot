@@ -26,7 +26,7 @@ export default function Today({ go }: { go: (p: Page) => void }) {
         <div className="max-w-3xl">
           <div className="eyebrow">{data.profile.legal_name} · books as of {shortDate(data.as_of)}</div>
           <h1 className="mt-3 text-[38px] leading-[1.1]">
-            {greet}, {data.profile.owner.split(' ')[0]}.{' '}
+            {greet}, {data.profile.owner}.{' '}
             {gap ? (
               <span className="text-ink2">Cash runs short on <span className="text-bad">{shortDate(fc.first_buffer_breach)}</span> — here's why, and the cheapest fix.</span>
             ) : (

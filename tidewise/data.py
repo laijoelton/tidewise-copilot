@@ -184,7 +184,7 @@ def build_demo_company(as_of: date = DEMO_AS_OF) -> Company:
             annual_revenue_myr=2_600_000,
             credit_band="B",
             has_collateral=False,
-            owner="Aina Rahman",
+            owner="Operating Team",
         ),
         accounts=[
             Account("MYR-OPS", "Operating account", "MYR", 98_400.00),
@@ -223,7 +223,7 @@ def demo_inbox(as_of: date) -> List[InboundMessage]:
     return [
         InboundMessage("MSG-01", d(0), "ap@vanderhoek.example", "Vanderhoek Accounts Payable",
                        "PO-7781 goods received",
-                       "Hi Aina, all goods for PO-7781 arrived in good order, thank you. Invoice INV-2041 "
+                       "Hi team, all goods for PO-7781 arrived in good order, thank you. Invoice INV-2041 "
                        "will be paid in our next payment run once it passes our three-way match."),
         InboundMessage("MSG-02", d(0), "accounts@hutan-lestari-timber.example", "Hutan Lestari Timber Sdn Bhd",
                        "URGENT: updated bank details for invoice payment",

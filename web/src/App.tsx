@@ -61,10 +61,18 @@ export default function App() {
     <div className="min-h-full">
       <aside className="fixed inset-y-0 left-0 z-20 flex w-[64px] flex-col bg-[#173f30] text-[#efe8d8] lg:w-[236px]">
         <div className="flex h-[72px] items-center gap-3 px-4">
-          <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden className="shrink-0">
-            <rect width="32" height="32" rx="9" fill="#f5f1e8" />
-            <path d="M5 18c3.5 0 3.5-4 7-4s3.5 4 7 4 3.5-4 7-4" stroke="#1f5a43" strokeWidth="2.6" fill="none" strokeLinecap="round" />
-            <path d="M5 23.5c3.5 0 3.5-4 7-4s3.5 4 7 4 3.5-4 7-4" stroke="#1f5a43" strokeWidth="2.6" fill="none" strokeLinecap="round" opacity=".4" />
+          {/* Crescent moon over a swell: the moon pulls the tide. */}
+          <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden className="shrink-0">
+            <defs>
+              <clipPath id="tw-tile"><rect width="32" height="32" rx="9" /></clipPath>
+              <mask id="tw-moon"><rect width="32" height="32" fill="#fff" /><circle cx="14.8" cy="8.2" r="4.4" fill="#000" /></mask>
+            </defs>
+            <g clipPath="url(#tw-tile)">
+              <rect width="32" height="32" fill="#f5f1e8" />
+              <circle cx="12" cy="10.5" r="5" fill="#c98a2b" mask="url(#tw-moon)" />
+              <path d="M0 21c3.5 0 4.5-3.5 8-3.5s4.5 3.5 8 3.5 4.5-3.5 8-3.5 4.5 3.5 8 3.5V32H0z" fill="#1f5a43" />
+              <path d="M-2 26.5c3.5 0 4.5-2.5 8-2.5s4.5 2.5 8 2.5 4.5-2.5 8-2.5 4.5 2.5 8 2.5 4.5-2.5 8-2.5" stroke="#f5f1e8" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity=".4" />
+            </g>
           </svg>
           <div className="hidden lg:block">
             <div className="serif text-[19px] font-semibold leading-none tracking-tight">Tidewise</div>
