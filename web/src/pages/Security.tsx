@@ -1,5 +1,6 @@
 import { Pause, Play } from 'lucide-react'
 import { useState } from 'react'
+import { AttackLab } from '../components/AttackLab'
 import { Badge, Loading, PageHead, Panel, TierBadge } from '../components/ui'
 import { api, rm, type Json } from '../lib/api'
 import { bump, useLoad } from '../lib/hooks'
@@ -22,7 +23,8 @@ export default function Security() {
   return (
     <>
       <PageHead title="Security" sub="The agent proposes; deterministic policy decides. The model is never asked whether an action is safe, never sees raw external content, and cannot approve anything." />
-      <KillSwitch paused={policy.paused} />
+      <AttackLab />
+      <div className="mt-4"><KillSwitch paused={policy.paused} /></div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <Panel title="Permission tiers">

@@ -39,6 +39,8 @@ export const api = {
   chat: (message: string, lang?: string) => call('/api/chat', { method: 'POST', body: JSON.stringify({ message, lang: lang || null }) }),
   risk: () => call('/api/risk'),
   market: () => call('/api/market'),
+  attackPresets: () => call('/api/attack/presets'),
+  attack: (email: Json) => call('/api/attack', { method: 'POST', body: JSON.stringify(email) }),
   riskPlan: (target: number) => call(`/api/risk/plan?target=${target}`),
   approve: (id: string, confirm_amount?: number) =>
     call(`/api/approvals/${id}/approve`, { method: 'POST', owner: true, body: JSON.stringify({ confirm_amount }) }),

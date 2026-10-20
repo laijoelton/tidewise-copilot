@@ -304,6 +304,15 @@ All assumptions live in `risk.ASSUMPTIONS` and are returned by the API, so they 
   - every value carries `source: "bnm"`, `"cfets"`, `"saved"` or `"fallback"`.
 - **Endpoint:** `GET /api/market`.
 
+### 3.17 Attack lab: "Try to fool Tidewise" (`tidewise/arena.py`)
+
+- **What it does:** a visitor writes any email. `arena.attack()` builds a fresh sandbox `Workspace`, delivers the email, and runs the real `guard.scan` (sender check, content rules, ML classifier).
+- **Acting on it:** it works out what the email wants in the agent's own vocabulary (pay a bill; pay a bank account the email supplies) and proposes that through `agent.propose()`. The real policy decides.
+- **Defence in depth:** it repeats the same action in a second fresh sandbox where the email is *not* quarantined, as if every filter had missed it. New bank details are still refused ("requested account differs from the verified one on file"), and anything else from outside content is held for the owner (provenance rule).
+- **Nothing real changes:** both workspaces are throw-away. The only trace in the real session is an `attack_lab` record in the audit trail.
+- **API:** `GET /api/attack/presets`, `POST /api/attack` (validated: sender must look like an email address; body ≤ 4,000 characters; rate-limited like every endpoint).
+- **Tests (`test_arena.py`):** every preset is quarantined and refused; a normal email isn't treated as an attack; the paraphrase is caught only by the ML layer; with the filters "missed", nothing auto-executes; a novel attack written for the test still moves RM 0.
+
 ## 4. LLM boundary
 
 - **Inputs:** the owner's message, plus structured and masked facts (forecast numbers, alert titles, plan, action outcomes). It never receives raw email or document text.
@@ -318,8 +327,8 @@ All assumptions live in `risk.ASSUMPTIONS` and are returned by the API, so they 
 
 | Channel | Endpoints |
 |---|---|
-| Read | `GET /api/overview` (incl. root-cause chain and breach probability), `/forecast`, `/risk` (Monte Carlo), `/risk/plan?target=0.05` (confidence planner), `/market` (live Bank Negara data), `/analysis`, `/matching`, `/orders`, `/financing`, `/inbox`, `/ledger`, `/policy`, `/audit`, `/audit/receipt/{id}`, `/sandbox`, `/approvals` |
-| Conversation | `POST /api/chat` (max 2,000 chars; optional `lang`: `en` / `zh` / `ms`), `POST /api/whatif` (bounded inputs) |
+| Read | `GET /api/overview` (incl. root-cause chain and breach probability), `/forecast`, `/risk` (Monte Carlo), `/risk/plan?target=0.05` (confidence planner), `/market` (live Bank Negara data), `/attack/presets`, `/analysis`, `/matching`, `/orders`, `/financing`, `/inbox`, `/ledger`, `/policy`, `/audit`, `/audit/receipt/{id}`, `/sandbox`, `/approvals` |
+| Conversation | `POST /api/chat` (max 2,000 chars; optional `lang`: `en` / `zh` / `ms`), `POST /api/attack` (attack lab, sandboxed), `POST /api/whatif` (bounded inputs) |
 | Owner (needs `X-Owner-Token`) | `POST /api/approvals/{id}/approve` (`confirm_amount` for step-up), `/reject`, `POST /api/autonomy` (kill switch), `POST /api/reset` |
 | Customer channel | `POST /api/bookings` (validated; prices from our catalogue; notes screened) |
 | Demo controls | `POST /api/simulate/customer-approves`, `POST /api/simulate/deposit`, `POST /api/redteam` |
@@ -332,7 +341,8 @@ Hardening:
 
 ## 6. Testing
 
-`python run_tests.py` runs **103 tests**:
+`python run_tests.py` runs **111 tests**:
+- **`test_arena.py`:** the attack lab: presets quarantined and refused, defence in depth when the filters miss, no false alarm on normal mail, RM 0 moved;
 - **`test_market.py`:** fixtures with the real response shapes from BNM and CFETS; latest-session selection and the monthly-close fallback; "no records" not tripping the back-off; units; 13-week volatility; OPR, RMB central parity and LPR parsing; one source down while the other keeps working; full offline fallback; caching; the off switch; and the FX alert using the live rate;
 - **`test_risk_i18n.py`:**
   - the noise-free simulation equals the deterministic forecast, results are reproducible, and the bands are ordered;

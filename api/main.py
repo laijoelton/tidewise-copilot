@@ -26,7 +26,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
 from tidewise.engine.ratelimit import RateLimiter  # noqa: E402
-from tidewise import analysis, bookings, cashflow, financing, market, matching, redteam, risk  # noqa: E402
+from tidewise import analysis, arena, bookings, cashflow, financing, guard, market, matching, redteam, risk  # noqa: E402
 from datetime import date as _date  # noqa: E402
 from tidewise.agent import Workspace  # noqa: E402
 from tidewise.policy import BASE_TIER, TIER_LABEL  # noqa: E402
@@ -207,6 +207,30 @@ def get_financing():
     m = financing.match_for_forecast(ws.company, fc) or {"need": 0, "options": [], "recommended_plan": []}
     snap = market.snapshot()
     return {**m, "opr": snap["opr"], "lpr": snap["china"]["lpr"]}
+
+
+class AttackIn(BaseModel):
+    sender: str = Field(min_length=3, max_length=200, pattern=r"^[^@\s]+@[^@\s]+$")
+    display_name: str = Field(default="", max_length=120)
+    subject: str = Field(default="", max_length=200)
+    body: str = Field(min_length=1, max_length=4000)
+
+
+@app.get("/api/attack/presets")
+def attack_presets():
+    return arena.PRESETS
+
+
+@app.post("/api/attack")
+def try_attack(body: AttackIn):
+    """"Try to fool Tidewise": runs a visitor's email through every defence on
+    a throw-away sandbox copy, and records the attempt in the audit trail."""
+    r = arena.attack(body.sender, body.display_name, body.subject, body.body)
+    ws.audit.record("attack_lab", "visitor", {"sender": guard.mask(body.sender), "verdict": r["verdict"],
+                                              "attempt": r["attempt"],
+                                              "outcome": (r["decision"] or {}).get("outcome")})
+    ws.audit.seal()
+    return r
 
 
 @app.get("/api/market")
