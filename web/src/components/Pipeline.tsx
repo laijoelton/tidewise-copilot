@@ -18,7 +18,7 @@ export function Pipeline() {
   const sel = gates.find((g) => g.id === open)
 
   return (
-    <Panel title="The 10-gate security pipeline" action={<GateLegend />}>
+    <Panel title="The 10-gate security pipeline" action={<div className="flex flex-wrap items-center gap-3"><GateLegend /><a href="#/gateway" className="btn btn-primary !py-1.5">▶ Run it live</a></div>}>
       <p className="-mt-1 mb-5 max-w-3xl text-[13.5px] text-ink2">
         Everything from outside passes gates 1–4 and gets a trust label. Every action the agent proposes then passes gates 5–10.
         A gate can let it through, send it to the owner, or stop it — and every action in the Copilot shows its own path through these gates.

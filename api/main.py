@@ -251,6 +251,34 @@ def security_pipeline():
     return {"gates": pipeline.GATES, "stats": stats, "attacks": attacks}
 
 
+class GatewayRunIn(BaseModel):
+    scenario: Optional[str] = Field(default=None, max_length=40)
+    sender: Optional[str] = Field(default=None, max_length=120)
+    display_name: str = Field(default="", max_length=80)
+    subject: str = Field(default="", max_length=200)
+    body: str = Field(default="", max_length=2000)
+
+
+@app.get("/api/gateway/scenarios")
+def gateway_scenarios():
+    from tidewise import gateway
+    return [{"key": k, "title": v["title"], "expect": v["expect"]} for k, v in gateway.SCENARIOS.items()]
+
+
+@app.post("/api/gateway/run")
+def gateway_run(body: GatewayRunIn):
+    """Send one item through all ten gates on a throwaway copy of the business."""
+    from tidewise import gateway
+    try:
+        if body.scenario:
+            return gateway.run(body.scenario)
+        if not body.sender or "@" not in body.sender:
+            raise HTTPException(422, "sender email required")
+        return gateway.run(custom=body.model_dump())
+    except KeyError:
+        raise HTTPException(404, "unknown scenario")
+
+
 @app.get("/api/policy")
 def policy():
     return {"limits": ws.policy.limits.__dict__, "paused": ws.policy.paused,

@@ -276,7 +276,7 @@ Hardening:
 
 ## 6. Testing
 
-`python run_tests.py` runs **75 tests**:
+`python run_tests.py` runs **78 tests**:
 - **`test_tidewise.py`:**
   - document checks, forecast, analysis and financing;
   - guard, policy and the agent loop end to end;

@@ -121,6 +121,8 @@ def trace(step: Dict[str, Any], scans: Optional[Dict[str, Any]] = None,
         elif failed:
             hard = blocked and (gid in (5, 6) or d["tier"] == 4)
             gates.append(_gate(gid, "stop" if hard else "escalate", failed[0]["detail"]))
+        elif gid == 5 and step.get("provenance") == "external" and d["outcome"] != "auto":
+            gates.append(_gate(gid, "escalate", "requested by outside content — it can never move money on its own"))
         else:
             gates.append(_gate(gid, "pass", cs[0]["detail"]))
         if gates[-1]["status"] == "stop":

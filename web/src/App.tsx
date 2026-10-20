@@ -1,4 +1,4 @@
-import { Activity, Banknote, Bot, CheckSquare, ClipboardList, FileCheck2, HeartPulse, Inbox, LayoutDashboard, LineChart, ShieldCheck } from 'lucide-react'
+import { Activity, Banknote, Workflow, Bot, CheckSquare, ClipboardList, FileCheck2, HeartPulse, Inbox, LayoutDashboard, LineChart, ShieldCheck } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { cx } from './components/ui'
 import { api } from './lib/api'
@@ -7,6 +7,7 @@ import ActivityPage from './pages/Activity'
 import Approvals from './pages/Approvals'
 import Cash from './pages/Cash'
 import Copilot from './pages/Copilot'
+import Gateway from './pages/Gateway'
 import Invoices from './pages/Invoices'
 import Orders from './pages/Orders'
 import Portal from './pages/Portal'
@@ -26,6 +27,7 @@ const NAV: { page: Page; label: string; icon: ComponentType<{ size?: number }> }
   { page: 'financing', label: 'Financing', icon: Banknote },
   { page: 'inbox', label: 'Inbox guard', icon: Inbox },
   { page: 'health', label: 'Business health', icon: HeartPulse },
+  { page: 'gateway', label: 'Security gateway', icon: Workflow },
   { page: 'security', label: 'Security', icon: ShieldCheck },
   { page: 'activity', label: 'Activity & audit', icon: Activity },
 ]
@@ -47,6 +49,7 @@ export default function App() {
     portal: <Portal go={go} />,
     inbox: <InboxPage />,
     health: <Health />,
+    gateway: <Gateway />,
     security: <Security />,
     activity: <ActivityPage />,
   }[page]
