@@ -189,6 +189,7 @@ def build_demo_company(as_of: date = DEMO_AS_OF) -> Company:
         accounts=[
             Account("MYR-OPS", "Operating account", "MYR", 98_400.00),
             Account("USD-COLL", "USD collection account", "USD", 6_200.00),
+            Account("CNY-OPS", "CNY account (China suppliers)", "CNY", 0.00),
         ],
         transactions=_transactions(as_of, history, rng),
         invoices=history + open_invoices,

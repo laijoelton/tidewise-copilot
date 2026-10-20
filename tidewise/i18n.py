@@ -14,7 +14,7 @@ UI can also force a language.
 
 import re
 from contextvars import ContextVar
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 LANGS = ("en", "zh", "ms")
 LANG_NAME = {"en": "English", "zh": "Simplified Chinese (简体中文)", "ms": "Bahasa Malaysia"}
@@ -86,6 +86,26 @@ _MS: List[Tuple[str, str]] = [
 ]
 
 
+# Currency conversion ("把10000令吉换成人民币", "tukar RM 10,000 ke yuan"), applied first and only
+# when the message names a currency, so the generic words (把, ke) don't touch other questions.
+_ZH_FX_HINT = re.compile(r"人民币|令吉|马币|林吉特|美元|美金|rmb|RMB|cny|CNY|usd|USD|rm\s*\d|RM\s*\d")
+_ZH_FX: List[Tuple[str, Any]] = [
+    (r"(\d+(?:\.\d+)?)\s*万", lambda m: str(int(round(float(m.group(1)) * 10_000)))),
+    (r"人民币|RMB|rmb", " cny "),
+    (r"令吉|马币|林吉特", " myr "),
+    (r"美元|美金", " usd "),
+    (r"(兑换成|转换成|换成|兑成|转成|兑换为|换为)", " to "),
+    (r"(cny|myr|usd)\s*(为|成)", r"\1 to "),
+    (r"(兑换|换汇|换|把)", " convert "),
+]
+_MS_FX_HINT = re.compile(r"\b(tukar(kan)?|tukaran)\b")
+_MS_FX: List[Tuple[str, str]] = [
+    (r"\b(tukar(kan)?|tukaran)\b", " convert "),
+    (r"\b(ke|kepada)\b", " to "),
+    (r"\bdolar( as| amerika)?\b", " usd "),
+]
+
+
 def to_routing_text(text: str, lang: str) -> str:
     """English keywords the deterministic router understands. Customer names
     and numbers pass through untouched."""
@@ -93,6 +113,12 @@ def to_routing_text(text: str, lang: str) -> str:
         return text
     rules = _ZH if lang == "zh" else _MS
     t = text if lang == "zh" else text.lower()
+    if lang == "zh" and _ZH_FX_HINT.search(t):
+        for pat, rep in _ZH_FX:
+            t = re.sub(pat, rep, t)
+    if lang == "ms" and _MS_FX_HINT.search(t):
+        for pat, rep in _MS_FX:
+            t = re.sub(pat, rep, t)
     out = t
     for pat, rep in rules:
         out = re.sub(pat, rep, out)
@@ -101,6 +127,16 @@ def to_routing_text(text: str, lang: str) -> str:
 
 # -- replying ---------------------------------------------------------------------------
 T: Dict[str, Dict[str, str]] = {
+    "fx_rate": {
+        "en": "Rate: 1 {frm} = {rate} {to} ({src}). {frm} {amount} → about {to} {out}.",
+        "zh": "汇率：1 {frm} = {rate} {to}（{src}）。{frm} {amount} → 约 {to} {out}。",
+        "ms": "Kadar: 1 {frm} = {rate} {to} ({src}). {frm} {amount} → kira-kira {to} {out}.",
+    },
+    "fx_ask": {
+        "en": "Convert RM {amount} into which currency: USD or yuan (CNY)?",
+        "zh": "RM {amount} 要换成哪种货币：美元（USD）还是人民币（CNY）？",
+        "ms": "Tukar RM {amount} kepada mata wang apa: USD atau yuan (CNY)?",
+    },
     "help": {
         "en": "I can forecast your cash, check trade documents, screen your inbox, analyse the business, match financing, "
               "run what-if scenarios, tell you the odds of running short, send reminders and pay approved bills within your "

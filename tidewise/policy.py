@@ -26,6 +26,7 @@ from datetime import timedelta
 from enum import IntEnum
 from typing import Any, Dict, List, Optional
 
+from . import fx
 from .models import Company, to_base
 
 
@@ -229,14 +230,25 @@ class Policy:
         return tier
 
     def _check_fx_convert(self, a: Action, checks: List[Check]) -> Tier:
-        usd = float(a.params.get("usd", 0))
-        available = self.company.account("USD-COLL").balance
-        checks.append(Check("_amount", True, str(to_base(usd, "USD"))))
-        checks.append(Check("funds available", 0 < usd <= available, f"USD {usd:,.0f} of USD {available:,.0f}"))
-        if not 0 < usd <= available:
+        n = fx.normalize(a.params)
+        if n is None:
+            checks.append(Check("valid conversion", False, "amount and currencies must be MYR, USD or CNY"))
             return Tier.T4_PROHIBITED
-        within = usd <= self.limits.auto_fx_usd
-        checks.append(Check("FX auto limit", within, f"USD {usd:,.0f} vs auto limit USD {self.limits.auto_fx_usd:,.0f}"))
+        amount, frm, to = n
+        src, dst = self.company.account_for(frm), self.company.account_for(to)
+        if src is None or dst is None:
+            checks.append(Check("accounts on file", False, f"no {frm if src is None else to} account"))
+            return Tier.T4_PROHIBITED
+        q = fx.quote(frm, to, amount)
+        checks.append(Check("_amount", True, str(q["myr_value"])))
+        checks.append(Check("funds available", amount <= src.balance, f"{frm} {amount:,.2f} of {frm} {src.balance:,.2f}"))
+        if amount > src.balance:
+            return Tier.T4_PROHIBITED
+        when = f", {q['date']}" if q.get("date") else ""
+        checks.append(Check("rate", True, f"1 {frm} = {q['rate']:.4f} {to} ({q['provider']}{when}, {q['source']})"))
+        within = q["usd_value"] <= self.limits.auto_fx_usd
+        checks.append(Check("FX auto limit", within,
+                            f"≈ USD {q['usd_value']:,.0f} vs auto limit USD {self.limits.auto_fx_usd:,.0f}"))
         return Tier.T2_EXECUTE if within else Tier.T3_APPROVE
 
     def _check_send_reminder(self, a: Action, checks: List[Check]) -> Tier:

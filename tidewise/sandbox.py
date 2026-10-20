@@ -81,13 +81,28 @@ class SandboxBank:
         return self._done(key, "pay_bill", {"bill_id": bill_id, "amount_myr": amount, "payee": payee.name,
                                             "to_account": f"{payee.bank} ****{payee.account_number[-4:]}"})
 
-    def fx_convert(self, usd: float, key: str) -> Dict[str, Any]:
+    def fx_convert(self, amount: float, key: str, frm: str = "USD", to: str = "MYR",
+                   quote: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Convert between MYR, USD and CNY at the quoted (live or saved) rate.
+        Re-checks the accounts and the funds itself."""
         if (r := self._replay(key)):
             return r
-        myr = to_base(usd, "USD")
-        self._post("USD-COLL", -usd, "fx", "Sandbox FX desk", "USD->MYR")
-        self._post("MYR-OPS", myr, "fx", "Sandbox FX desk", "USD->MYR")
-        return self._done(key, "fx_convert", {"usd": usd, "myr": myr, "rate": round(myr / usd, 4)})
+        frm, to = frm.upper(), to.upper()
+        src, dst = self.company.account_for(frm), self.company.account_for(to)
+        if frm == to or amount <= 0 or src is None or dst is None:
+            raise SandboxError(f"cannot convert {frm} to {to}")
+        rate = float(quote["rate"]) if quote else to_base(1, frm) / to_base(1, to)
+        out = round(amount * rate, 2)
+        self._post(src.id, -amount, "fx", "Sandbox FX desk", f"{frm}->{to} @ {rate:.6f}")
+        self._post(dst.id, out, "fx", "Sandbox FX desk", f"{frm}->{to} @ {rate:.6f}")
+        detail = {"from": frm, "to": to, "amount": amount, "converted": out, "rate": round(rate, 6),
+                  "about": f"{frm} {amount:,.2f} -> {to} {out:,.2f}"}
+        if quote:
+            detail.update({"amount_myr": quote.get("myr_value"), "rate_source": quote.get("source"),
+                           "rate_date": quote.get("date"), "rate_provider": quote.get("provider")})
+        if frm == "USD" and to == "MYR":
+            detail.update({"usd": amount, "myr": out})
+        return self._done(key, "fx_convert", detail)
 
     def send_message(self, kind: str, to: str, subject: str, body: str, key: str, ref: str = "") -> Dict[str, Any]:
         if (r := self._replay(key)):

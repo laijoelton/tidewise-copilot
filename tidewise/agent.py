@@ -23,7 +23,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import analysis, bookings, cashflow, financing, guard, i18n, matching, pipeline, risk
+from . import analysis, bookings, cashflow, financing, fx, guard, i18n, matching, pipeline, risk
 from .audit import AuditTrail
 from .data import build_demo_company
 from .llm import LLM
@@ -355,10 +355,18 @@ class Agent:
                 if inv.id.lower() in t or inv.customer.split()[0].lower() in t:
                     self._remind(inv, steps, provenance="owner")
                     handled = True
-        m = re.search(r"\bconvert\b[^\d]*([\d,]+(?:\.\d+)?)\s*(usd|us\$|\$)?", t)
-        if m:
-            self.propose(Action("fx_convert", {"usd": float(m.group(1).replace(",", ""))}, "owner",
-                                rationale="owner asked to convert USD to MYR"), steps)
+        conv = fx.parse(t)
+        if conv and conv.get("ask"):
+            steps.append({"kind": "note", "text": L("fx_ask", amount=f"{conv['amount']:,.0f}")})
+            handled = True
+        elif conv:
+            q = fx.quote(conv["from"], conv["to"], conv["amount"])
+            when = f", {q['date']}" if q.get("date") else ""
+            steps.append({"kind": "note", "text": L("fx_rate", frm=q["from"], to=q["to"], rate=f"{q['rate']:.4f}",
+                                                     amount=f"{q['amount']:,.2f}", out=f"{q['converted']:,.2f}",
+                                                     src=f"{q['provider']}{when}, {q['source']}")})
+            self.propose(Action("fx_convert", {"amount": conv["amount"], "from": conv["from"], "to": conv["to"]},
+                                "owner", rationale=f"owner asked to convert {conv['from']} to {conv['to']}"), steps)
             handled = True
         m = re.search(r"\bapply\b.*\b(invoice financing|invfin|purchase.order financing|po financing|pofin|working.capital|wcline)\b", t)
         if m:
@@ -582,7 +590,8 @@ class Agent:
         if a.type == "pay_bill":
             r = sb.pay_bill(p["bill_id"], key)
         elif a.type == "fx_convert":
-            r = sb.fx_convert(float(p["usd"]), key)
+            amount, frm, to = fx.normalize(p)
+            r = sb.fx_convert(amount, key, frm, to, quote=fx.quote(frm, to, amount))
         elif a.type == "send_reminder":
             r = sb.send_message("reminder", p["to"], p["subject"], p["body"], key, ref=p["invoice_id"])
             ws.policy.reminder_log[p["invoice_id"]] = ws.company.as_of
@@ -628,7 +637,8 @@ class Agent:
             o = c.order(p["order_id"])
             return to_base(o.total, o.currency)
         if a.type == "fx_convert":
-            return to_base(float(p.get("usd", 0)), "USD")
+            n = fx.normalize(p)
+            return fx.quote(n[1], n[2], n[0])["myr_value"] if n else 0.0
         return 0.0
 
     def _title(self, a: Action) -> str:
@@ -643,7 +653,11 @@ class Agent:
             name = next((x.name for x in financing.CATALOGUE if x.id == p["product_id"]), p["product_id"])
             return f"Apply for {name}: RM {float(p['amount']):,.0f}"
         if a.type == "fx_convert":
-            return f"Convert USD {float(p['usd']):,.0f} to MYR"
+            n = fx.normalize(p)
+            if not n:
+                return "Convert currency"
+            q = fx.quote(n[1], n[2], n[0])
+            return f"Convert {q['from']} {q['amount']:,.2f} to {q['to']} (≈ {q['to']} {q['converted']:,.2f} at {q['rate']:.4f})"
         if a.type == "send_reminder":
             return f"Send payment reminder for {p.get('invoice_id')} to {p.get('to')}"
         if a.type == "send_corrected_invoice":
@@ -799,6 +813,6 @@ class Agent:
             "request_deposit": lambda: f"{'requested' if done else 'request'} the deposit for {p.get('order_id')}",
             "confirm_booking": lambda: f"{'confirmed' if done else 'confirm'} booking {p.get('order_id')} ({float(p.get('deposit_pct', 0)):.0%} deposit)",
             "decline_booking": lambda: f"{'declined' if done else 'decline'} booking {p.get('order_id')} — {p.get('reason')}",
-            "fx_convert": lambda: f"convert USD {float(p.get('usd', 0)):,.0f}",
+            "fx_convert": lambda: "convert {1} {0:,.0f} to {2}".format(*(fx.normalize(p) or (0, "", ""))),
             "pay_bill": lambda: f"pay {p.get('bill_id')}",
         }.get(s["type"], lambda: s["type"].replace("_", " "))()

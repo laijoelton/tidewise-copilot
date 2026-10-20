@@ -47,7 +47,8 @@ Ask "what if Harbour pays 30 days late and sales drop 20%?" and Tidewise re-runs
 10. **Live central-bank data from Malaysia and China.**
     - **Bank Negara Malaysia (free Open API):** today's USD/MYR and CNY/MYR value the foreign receivables; 12 months of BNM rates set the Monte Carlo's currency swing (replacing a hand-set 3%); the OPR appears on the Financing page.
     - **China's CFETS, the People's Bank of China's FX platform:** the official **RMB central parity** (人民币中间价) for CNY/MYR and USD/CNY, and the **Loan Prime Rate** (LPR, 贷款市场报价利率). The Financing page shows Malaysia's and China's official yuan–ringgit rates side by side.
-    - The books keep fixed sandbox rates, so the demo stays reproducible. Offline, every value falls back and is labelled as such.
+    - **Convert ringgit, US dollars and yuan at these rates:** "convert RM 10,000 to yuan", "把10000令吉换成人民币" or "tukar RM 10,000 ke yuan". Each conversion shows its rate and source; up to about USD 5,000 runs on its own, more waits for the owner. A CNY account holds yuan for paying suppliers in China.
+    - The books keep fixed sandbox rates, so the demo stays reproducible; conversions always use the live or saved rate. Offline, every value falls back and is labelled as such.
 11. **"Try to fool Tidewise."** On the Security page, anyone can write their own attack email: a fake supplier, a hidden instruction for the AI, a polite paraphrase, Chinese or Malay. It runs through the real defences on a throw-away copy of the books, layer by layer (sender check → content rules → ML classifier), and then Tidewise tries to do what the email asks. The page also shows the same request **as if every filter had missed it**: outside content still can't move money (new bank details are refused outright; anything else waits for the owner). Money moved: **RM 0**, every time.
 12. **Impact, in money.** The Today page shows what Tidewise has done, all from the session's own records. In the demo: the RM 92,020 gap closed and the breach risk cut from 100% to 1.4%; the fix cost RM 2,058 against RM 16,564 for a merchant cash advance at 346% APR (**RM 14,506 saved**); RM 146,000 of scam payments blocked; 16 tasks done for the owner (about 3 hours, estimated).
 
@@ -213,7 +214,7 @@ The backend must run as **one process** (no `--workers`): approvals and limits l
 python run_tests.py
 ```
 
-This runs 135 tests covering saved state and the anchored audit log, the ten-gate pipeline and live gateway, the impact panel, the attack lab, live Bank Negara and CFETS data (offline fixtures), the agent loop, policy, sandbox, guard, ML models, three-way match, bookings, forecast, what-if, Monte Carlo risk and the confidence planner, financing, the multilingual Copilot, red team and the Merkle log.
+This runs 151 tests covering ringgit / US dollar / yuan conversion, saved state and the anchored audit log, the ten-gate pipeline and live gateway, the impact panel, the attack lab, live Bank Negara and CFETS data (offline fixtures), the agent loop, policy, sandbox, guard, ML models, three-way match, bookings, forecast, what-if, Monte Carlo risk and the confidence planner, financing, the multilingual Copilot, red team and the Merkle log.
 
 ```bash
 python -m tidewise.redteam
@@ -238,14 +239,14 @@ This regenerates `evidence/` (sandbox operations log, audit trail, transcript, r
 ## Repository layout
 
 ```
-tidewise/          the agent: data, matching, bookings, forecast, analysis, financing, guard, ml, policy,
+tidewise/          the agent: data, matching, bookings, forecast, analysis, financing, fx, guard, ml, policy,
                    sandbox, audit, store, agent, llm, redteam, risk, market, i18n, arena, impact, pipeline, gateway
 tidewise/engine/   Merkle-chained log, rate limiter
 api/main.py        FastAPI: conversation channel, owner channel, customer booking channel
 web/               React 19 + Vite + Tailwind UI (Today, Copilot, Approvals, Cash flow & what-if, Orders & bookings,
                    Invoice check, Financing, Inbox guard, Business health, Gateway, Security, Activity & audit,
                    plus the customer portal)
-tests/             unittest suite (135 tests)
+tests/             unittest suite (151 tests)
 docs/              technical documentation, security self-assessment
 evidence/          execution evidence (sandbox ops log, audit trail, transcript, red-team and ML reports)
 scripts/           evidence generator

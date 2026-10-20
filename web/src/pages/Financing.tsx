@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Badge, Check, Empty, Loading, PageHead, Panel, Stat, cx } from '../components/ui'
 import { api, pct, rm, shortDate, type Json } from '../lib/api'
 import { useLoad } from '../lib/hooks'
@@ -32,9 +33,44 @@ function LiveRates() {
       <p className="mt-3 text-[12.5px] text-ink3">
         {s.cny_myr_gap_pct != null && <>Malaysia's and China's official yuan–ringgit rates differ by {Math.abs(s.cny_myr_gap_pct).toFixed(2)}%. </>}
         {Object.values({ a: s.usd_myr, b: s.opr, c: cn.lpr }).some((x: Json) => x.source === 'saved') && <>Live services unreachable: showing real data saved on {shortDate(s.saved_on)}. </>}
-        Your books use fixed sandbox rates (USD {fx(s.usd_myr.book_rate, 2)}) so the demo is reproducible; live rates value your foreign receivables today and set the currency swing in the risk simulation.
+        Your books use fixed sandbox rates (USD {fx(s.usd_myr.book_rate, 2)}) so the demo is reproducible; live rates value your foreign receivables today, price every currency conversion and set the currency swing in the risk simulation.
       </p>
+      <Converter s={s} />
     </Panel>
+  )
+}
+
+type Cur = 'MYR' | 'USD' | 'CNY'
+const WORD: Record<Cur, string> = { MYR: 'RM', USD: 'USD', CNY: 'yuan' }
+
+// Same rule as tidewise/fx.py: ringgit legs at Bank Negara's rate, USD↔CNY at CFETS's central parity.
+function rateOf(s: Json, from: Cur, to: Cur): [number, string] {
+  const perMyr: Record<Cur, number> = { MYR: 1, USD: s.usd_myr.rate, CNY: s.cny_myr.rate }
+  const parity = s.china?.usd_cny_parity?.rate
+  if (from !== to && (from === 'USD' || from === 'CNY') && (to === 'USD' || to === 'CNY') && parity)
+    return [from === 'USD' ? parity : 1 / parity, 'CFETS central parity']
+  return [perMyr[from] / perMyr[to], 'Bank Negara Malaysia']
+}
+
+function Converter({ s }: { s: Json }) {
+  const [amount, setAmount] = useState(10000)
+  const [from, setFrom] = useState<Cur>('MYR')
+  const [to, setTo] = useState<Cur>('CNY')
+  const same = from === to
+  const [rate, who] = rateOf(s, from, to)
+  const cmd = `convert ${WORD[from]} ${amount.toLocaleString()} to ${WORD[to]}`
+  return (
+    <div className="mt-4 rounded-lg border border-edge bg-canvas/50 p-3">
+      <div className="eyebrow mb-2">Convert · MYR · USD · 人民币 CNY</div>
+      <div className="flex flex-wrap items-center gap-2 text-[13px]">
+        <input className="input w-32" type="number" min={1} value={amount} onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))} />
+        <select className="input w-24" value={from} onChange={(e) => setFrom(e.target.value as Cur)}>{(['MYR', 'USD', 'CNY'] as Cur[]).map((c) => <option key={c}>{c}</option>)}</select>
+        <span className="text-ink3">→</span>
+        <select className="input w-24" value={to} onChange={(e) => setTo(e.target.value as Cur)}>{(['MYR', 'USD', 'CNY'] as Cur[]).map((c) => <option key={c}>{c}</option>)}</select>
+        {!same && <span className="num font-semibold">≈ {to} {(amount * rate).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>}
+      </div>
+      {!same && <p className="mt-2 text-[12px] text-ink3">1 {from} = {rate.toFixed(4)} {to} · {who}. To convert, ask the Copilot “{cmd}” (or 中文 / Bahasa Malaysia). Up to about USD 5,000 runs on its own; more waits for your approval.</p>}
+    </div>
   )
 }
 

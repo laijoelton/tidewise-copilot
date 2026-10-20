@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 
 BASE_CURRENCY = "MYR"
 # Sandbox reference rates (MYR per unit). Fixed so forecasts are reproducible.
-FX_RATES = {"MYR": 1.0, "USD": 4.42, "EUR": 4.81, "SGD": 3.41}
+FX_RATES = {"MYR": 1.0, "USD": 4.42, "EUR": 4.81, "SGD": 3.41, "CNY": 0.62}   # book rates; conversions use live rates (fx.py)
 
 
 def to_base(amount: float, currency: str) -> float:
@@ -191,6 +191,9 @@ class Company:
 
     def account(self, account_id: str) -> Account:
         return next(a for a in self.accounts if a.id == account_id)
+
+    def account_for(self, currency: str) -> Optional[Account]:
+        return next((a for a in self.accounts if a.currency == currency), None)
 
     def payee(self, payee_id: str) -> Optional[Payee]:
         return next((p for p in self.payees if p.id == payee_id), None)

@@ -25,7 +25,8 @@ Covers: system architecture, core algorithms and security design. The [security 
 | Agency | `tidewise/agent.py` | Routing, read tools, what-if parsing, autopilot playbook, propose → decide → execute/queue/block, approvals, replies. |
 | | `tidewise/llm.py` | Optional Gemini: intent fallback and reply wording, behind a number-grounding check. |
 | Control | `tidewise/policy.py` | T0–T4 tiers, per-action checks, owner limits, provenance/taint, autonomy budget, kill switch, step-up. |
-| Execution | `tidewise/sandbox.py` | Sandbox bank: pay, FX, messages, financing, supplier terms, corrected invoices, booking confirmations, simulated customer actions. |
+| | `tidewise/fx.py` | Currency conversion between MYR, USD and CNY: live or saved rates, parsing in three languages. |
+| Execution | `tidewise/sandbox.py` | Sandbox bank (MYR, USD and CNY accounts): pay, FX, messages, financing, supplier terms, corrected invoices, booking confirmations, simulated customer actions. |
 | Assurance | `tidewise/audit.py` | Audit trail over the Merkle log: inclusion proofs, verification, export, roots anchored outside the app. |
 | | `tidewise/store.py` | Saved state: the workspace survives a restart; HMAC-checked before it is ever loaded. |
 | | `tidewise/redteam.py` | 28 attack scenarios against the real code. |
@@ -205,7 +206,7 @@ Per-action checks:
 - **`request_deposit`:** deposit outstanding; registered contact.
 - **`confirm_booking`:** screening clean (else T4); known customer from the contact on file, ML risk ≤ 30%, ≤ RM 50k, capacity, deposit ≥ recommended — otherwise T3.
 - **`decline_booking`:** T1 if the booking was quarantined, else T3.
-- **`fx_convert`:** funds available; ≤ USD 5k auto.
+- **`fx_convert`:** MYR, USD or CNY accounts on file; funds available; rate and its source shown; ≤ USD 5k equivalent auto.
 - **`apply_financing`, `request_supplier_extension`:** always T3.
 - **`add_payee`, `change_payee_bank`, `transfer_external`, `change_limits`:** always T4.
 
@@ -350,6 +351,17 @@ All assumptions live in `risk.ASSUMPTIONS` and are returned by the API, so they 
 - **Owner-token lockout (risk R1).** Five wrong tokens from one address in 10 minutes lock that address out of the owner channel for 10 minutes (HTTP 429, even with the right token). Every failure is an audit record.
 - Tests: `test_hardening.py`.
 
+### 3.20 Currency conversion: ringgit, US dollars and yuan (`tidewise/fx.py`)
+
+- **Accounts:** MYR operating, USD collection and a CNY account for paying suppliers in China. Books can hold MYR, USD, CNY, EUR and SGD.
+- **Rates (`fx.quote`):** the ringgit legs use Bank Negara's rate (USD/MYR, CNY/MYR); USD↔CNY uses CFETS's official RMB central parity. Rates come from the cache or the real snapshot saved on 20 Oct 2026, never fetched on the request path. If neither has a rate, the book rate is used and labelled `book`.
+- **Every quote says where it came from:** provider, date and source (`bnm`, `cfets`, `saved`, `book`) are shown in the reply, the policy check and the sandbox receipt.
+- **Policy:** the same tiers as payments. Up to about USD 5,000 (ringgit value at the live rate) runs on its own; more waits for the owner; converting money that isn't there, or an unknown currency, is refused; anything an email asks for waits for the owner.
+- **Chat, three languages:** "convert RM 10,000 to yuan", "convert USD 3,000 to CNY", "把10000令吉换成人民币", "把2万人民币换成令吉", "tukar RM 10,000 ke yuan". "Convert RM 500" with no target asks which currency. The old "convert 1000" (USD → MYR) still works.
+- **UI:** a converter on the Financing page shows the amount at the live rate and the Copilot command to run it.
+- **Book vs live:** the books keep fixed sandbox rates so the demo is reproducible; conversions always use the live or saved rate.
+- Tests: `test_fx.py`.
+
 ## 4. LLM boundary
 
 - **Inputs:** the owner's message, plus structured and masked facts (forecast numbers, alert titles, plan, action outcomes). It never receives raw email or document text.
@@ -378,7 +390,8 @@ Hardening:
 
 ## 6. Testing
 
-`python run_tests.py` runs **135 tests**:
+`python run_tests.py` runs **151 tests**:
+- **`test_fx.py`:** Bank Negara rates for ringgit legs and the CFETS parity for USD/CNY; live rate rather than book rate; labelled book-rate fallback; parsing in English, Chinese (including 万) and Malay; small conversions run, large ones wait for approval; no converting money that isn't there or unknown currencies; email-sourced conversions wait; the old USD command still works;
 - **`test_hardening.py`:** state survives a restart (approvals, limits, kill switch, audit) and approvals still work afterwards; a tampered, wrongly keyed or out-of-date snapshot is never loaded; anchored roots catch a consistent rewrite of the whole log; provenance is mandatory; owner-token lockout;
 - **`test_impact.py`:** nothing claimed before anything is done; fast cash priced exactly as the Financing page; after the demo, gap closed, risk under 5%, cost = surcharges + fees, RM 146,000 of scam payments blocked;
 - **`test_arena.py`:** the attack lab: presets quarantined and refused, defence in depth when the filters miss, no false alarm on normal mail, RM 0 moved;
