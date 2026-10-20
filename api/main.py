@@ -90,6 +90,12 @@ def require_owner(request: Request, x_owner_token: Optional[str] = Header(defaul
     return "owner"
 
 
+@app.get("/api/auth/session")
+def owner_session(who: str = Depends(require_owner)):
+    """Validate the existing owner credential without performing an action."""
+    return {"role": who}
+
+
 @app.on_event("startup")
 def _announce():
     print(f"\n  Tidewise owner token (approvals channel): {OWNER_TOKEN}")

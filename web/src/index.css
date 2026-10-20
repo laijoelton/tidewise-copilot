@@ -138,3 +138,45 @@ table.data tbody tr:hover { background: #fff7ec; }
 .brand-portrait { width: 40px; height: 40px; border: 2px solid #fff1da; object-fit: cover; flex-shrink: 0; border-radius: 50%; }
 
 @media (max-width: 1023px) { .sidebar-brand { padding-inline: 12px; } }
+
+/* Sign in uses the same quiet surfaces and orange accents as the workspace. */
+.login-page { min-height: 100vh; display: flex; flex-direction: column; padding: 32px clamp(24px, 6vw, 100px); background: #fffaf4; border-top: 5px solid #e57a22; }
+.login-brand { display: flex; align-items: center; gap: 12px; }
+.login-brand img { border-radius: 50%; }
+.login-brand strong { display: block; font-size: 23px; letter-spacing: -.03em; color: #8d3c0c; }
+.login-brand span { font-size: 12px; color: var(--color-ink3); }
+.login-layout { flex: 1; width: 100%; max-width: 1140px; margin: 60px auto; display: grid; grid-template-columns: 1fr 440px; align-items: center; gap: 48px; }
+.login-intro h1 { margin: 15px 0 20px; font-size: clamp(34px, 4vw, 48px); line-height: 1.15; font-weight: 650; }
+.login-intro > p { max-width: 390px; color: var(--color-ink2); font-size: 15px; line-height: 1.8; margin-bottom: 30px; }
+.login-card { background: #fff; border: 1px solid #e6d2bc; border-radius: 6px; overflow: hidden; }
+.login-card-header { background: #fff0df; border-bottom: 1px solid #e6d2bc; display: flex; gap: 10px; align-items: center; padding: 16px 24px; font-weight: 600; color: #873706; font-size: 13px; }
+.login-token-field { position: relative; }
+.login-token-field input { min-height: 46px; }
+.login-reveal { position: absolute; right: 3px; top: 3px; width: 40px; height: 40px; display: grid; place-items: center; color: var(--color-ink3); }
+.login-footer { font-size: 11px; color: var(--color-ink3); border-top: 1px solid #ead9c4; padding-top: 18px; }
+@media (max-width: 850px) { .login-layout { gap: 36px; grid-template-columns: 1fr; max-width: 480px; margin-block: 36px; } .login-intro h1 { font-size: 34px; } .login-intro > p { margin-bottom: 0; } }
+
+.login-layout { max-width: 1120px; gap: 48px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+.login-intro { border: 1px solid #ead9c4; border-radius: 8px; background: #fff; overflow: hidden; }
+.login-identity { display: flex; align-items: center; gap: 17px; padding: 26px 30px; background: #fff; border: 0; }
+.login-intro-logo { width: 80px; height: 80px; border-radius: 50%; border: 3px solid #fff; flex-shrink: 0; }
+.login-identity-name { display: block; font-size: 28px; font-weight: 700; letter-spacing: -.035em; color: #70360e; }
+.login-identity-sub { display: block; margin-top: 3px; font-size: 12px; color: #8a694b; }
+.login-intro-body { padding: 30px; }
+.login-company-label { font-size: 11px; color: #85705e; font-weight: 500; }
+.login-intro h1 { font-size: clamp(28px, 2.8vw, 36px); font-weight: 650; line-height: 1.2; margin: 13px 0 16px; color: #3c3028; letter-spacing: -.03em; }
+.login-intro h1 span { color: #b75512; }
+.login-intro-body > p { font-size: 14px; line-height: 1.75; color: #7b6a5c; max-width: 360px; }
+.login-capabilities { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 30px; border-top: 1px solid #eddfd0; padding-top: 22px; }
+.login-capabilities > div { padding: 0 12px; border-left: 1px solid #eddfd0; }
+.login-capabilities > div:first-child { padding-left: 0; border-left: 0; }
+.login-capabilities svg { color: #ba5b18; margin-bottom: 11px; }
+.login-capabilities span { display: block; font-size: 12px; font-weight: 600; color: #594334; }
+.login-capabilities small { display: block; margin-top: 5px; font-size: 10px; color: #8c7a6a; line-height: 1.5; }
+.login-team-strip { display: flex; align-items: center; gap: 11px; background: #faf7f2; border-top: 1px solid #eddfd0; padding: 16px 30px; }
+.login-team-avatar { display: grid; place-items: center; width: 34px; height: 34px; background: #f6dfbf; color: #87501f; border-radius: 50%; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.login-team-strip strong { display: block; font-size: 12px; color: #5b4737; font-weight: 600; }
+.login-team-strip div > span { display: block; font-size: 10px; color: #8b7969; margin-top: 2px; }
+.login-team-label { margin-left: auto; font-size: 9px; letter-spacing: .06em; color: #8d7966; }
+@media (max-width: 850px) { .login-layout { grid-template-columns: 1fr; gap: 24px; } .login-intro-body { padding: 24px; } .login-identity { padding: 20px 24px; } .login-intro-logo { width: 64px; height: 64px; } .login-intro h1 { font-size: 30px; } .login-team-strip { padding: 16px 24px; } }
+@media (max-width: 380px) { .login-team-label { display: none; } .login-capabilities > div { padding-inline: 7px; } }

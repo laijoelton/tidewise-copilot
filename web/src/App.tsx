@@ -1,7 +1,8 @@
 import { ChevronRight, Activity, Banknote, Workflow, Bot, CheckSquare, ClipboardList, FileCheck2, HeartPulse, Inbox, LayoutDashboard, LineChart, ShieldCheck } from 'lucide-react'
-import type { ComponentType } from 'react'
+import { useEffect, useState, type ComponentType } from 'react'
 import { cx } from './components/ui'
-import { api } from './lib/api'
+import { api, clearOwnerToken, getOwnerToken, verifyOwnerToken } from './lib/api'
+import Login from './pages/Login'
 import { useLoad, useRoute, type Page } from './lib/hooks'
 import ActivityPage from './pages/Activity'
 import Approvals from './pages/Approvals'
@@ -33,6 +34,25 @@ const NAV: { page: Page; label: string; icon: ComponentType<{ size?: number }> }
 ]
 
 export default function App() {
+  const [page] = useRoute()
+  const [signedIn, setSignedIn] = useState(false)
+  const [checking, setChecking] = useState(() => Boolean(getOwnerToken()))
+  useEffect(() => {
+    const token = getOwnerToken()
+    if (!token) return
+    let active = true
+    verifyOwnerToken(token).then(() => { if (active) setSignedIn(true) })
+      .catch(() => { if (active) clearOwnerToken() })
+      .finally(() => { if (active) setChecking(false) })
+    return () => { active = false }
+  }, [])
+  if (page === 'portal') return <div className="min-h-full px-4 py-9 sm:px-10"><Portal go={p => { window.location.hash = `/${p}` }} /></div>
+  if (checking) return <div className="min-h-screen grid place-items-center text-ink2" role="status">Checking your session…</div>
+  if (!signedIn) return <Login onLogin={() => setSignedIn(true)} />
+  return <Workspace onSignOut={() => { clearOwnerToken(); setSignedIn(false) }} />
+}
+
+function Workspace({ onSignOut }: { onSignOut: () => void }) {
   const [page, go] = useRoute()
   const { data: approvals } = useLoad(api.approvals)
   const { data: policy } = useLoad(api.policy)
@@ -98,7 +118,7 @@ export default function App() {
       <main className="pl-[64px] lg:pl-[248px]">
         <div className="workspace-bar flex min-h-[70px] flex-wrap items-center justify-between gap-3 border-b border-edge px-5 py-3 sm:px-10">
           <div className="flex items-center gap-2 text-xs text-ink3"><span className="hidden sm:inline">Workspace</span><ChevronRight size={13} className="hidden sm:block" /><span className="font-semibold text-ink">{NAV.find(n => n.page === page)?.label}</span></div>
-          <div className="flex items-center gap-4"><span className="sandbox-pill"><span />Sandbox workspace</span><span className="owner-avatar" title="Business owner">SR</span></div>
+          <div className="flex items-center gap-4"><span className="sandbox-pill"><span />Sandbox workspace</span><span className="owner-avatar" title="Operating Team">OT</span><button className="btn text-xs" onClick={onSignOut}>Sign out</button></div>
         </div>
         <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-9">{view}</div>
       </main>

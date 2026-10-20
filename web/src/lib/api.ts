@@ -22,6 +22,19 @@ async function call(path: string, init?: RequestInit & { owner?: boolean }): Pro
   return body
 }
 
+export async function verifyOwnerToken(token: string): Promise<void> {
+  const res = await fetch('/api/auth/session', { headers: { 'X-Owner-Token': token }, cache: 'no-store' })
+  if (res.status === 401) throw new Error('That access token is incorrect. Please try again.')
+  if (res.status === 429) throw new Error('Too many attempts. Please wait 10 minutes before trying again.')
+  if (!res.ok) throw new Error('Unable to sign in. Check that the Tidewise API is running.')
+  const body = await res.json()
+  if (body.role !== 'owner') throw new Error('Unable to verify this workspace session.')
+}
+
+export function clearOwnerToken() {
+  try { sessionStorage.removeItem(TOKEN_KEY) } catch { /* private mode */ }
+}
+
 export const api = {
   overview: () => call('/api/overview'),
   forecast: () => call('/api/forecast'),
