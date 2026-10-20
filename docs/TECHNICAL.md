@@ -247,7 +247,7 @@ What varies in each future (everything contractual, such as bills, payroll and r
 | Open invoice date | deterministic expected date + a residual bootstrapped from **that customer's own payment history** + 2-day jitter |
 | ML tail | with probability = `ml.CollectionRisk` score, the invoice lands 30+ days past due (exponential extra days) |
 | PO-mismatch hold | −35% … +60% of the expected hold (triangular) |
-| USD receipts | one USD/MYR shock per future (σ 3% over 13 weeks) |
+| USD receipts | one USD/MYR shock per future; σ over 13 weeks measured from 12 months of Bank Negara rates (2.65% as of 20 Oct 2026), 3% if no data |
 | Doubtful debts | 25% chance of recovery within the horizon |
 | Deposits | 85% arrive within the horizon, up to 14 days late |
 | Run-rate sales / materials | a demand level per future (σ 12%) × weekly noise (σ 15%); materials move half as much |
@@ -268,7 +268,8 @@ All assumptions live in `risk.ASSUMPTIONS` and are returned by the API, so they 
   3. Each financing draw is the smallest amount (RM 5k steps, by bisection) that reaches the target.
   4. The cheapest combination that reaches the target wins. If none does, the lowest-risk one wins and is labelled as such.
 - **Comparison:** the planner also scores the classic plan (free fixes + the matcher's plan for the single forecast's gap), so the owner sees what that plan leaves behind.
-- **Demo result:** the classic plan costs RM 1,440 and leaves 59% risk. The 95% plan costs RM 2,470 and leaves 4.0% risk.
+- **Demo result:** the classic plan costs RM 1,440 and leaves 59% risk. The 95% plan costs RM 2,470 and leaves 3.3% risk.
+- **Same futures everywhere:** the planner and the dashboard both simulate the same 2,000 futures (same seed), so the risk the planner promises is the risk the dashboard shows after the steps are approved.
 - **No authority:** the planner executes nothing. "Make me 95% safe" proposes each step through `agent.propose()`, so policy decides, and money movements still need the owner's approval. Steps already waiting for approval are not queued twice.
 - **Verified:** a test approves the proposed steps, then re-simulates with a *different* seed and checks that the promised risk holds.
 
@@ -294,11 +295,13 @@ All assumptions live in `risk.ASSUMPTIONS` and are returned by the API, so they 
   - **Financing page:** shows the OPR.
 - **Books unchanged:** the books keep `models.FX_RATES`, so demo numbers and tests stay reproducible.
 - **Robustness:**
+  - **never on the request path:** the API refreshes BNM and CFETS in a background thread at start-up and every 6 hours; pages and the Monte Carlo read only the cache;
+  - **saved snapshot:** `tidewise/market_snapshot.json` holds real BNM and CFETS data captured on 20 Oct 2026 (236 days of USD/MYR closes, OPR, RMB central parity, LPR). It's used when the live services can't be reached, and every value from it is labelled `saved`;
   - 4-second timeout;
   - disk cache in `.cache/` (gitignored) for 6 hours, with stale data preferred over none;
   - a 10-minute back-off per host after a connection failure, so an offline laptop never hangs the UI (an answered "no records" is cached for 30 minutes instead, and doesn't trip the back-off);
   - `TIDEWISE_LIVE_DATA=off` switches it off;
-  - every value carries `source: "bnm"` or `"fallback"`.
+  - every value carries `source: "bnm"`, `"cfets"`, `"saved"` or `"fallback"`.
 - **Endpoint:** `GET /api/market`.
 
 ## 4. LLM boundary
@@ -329,7 +332,7 @@ Hardening:
 
 ## 6. Testing
 
-`python run_tests.py` runs **99 tests**:
+`python run_tests.py` runs **103 tests**:
 - **`test_market.py`:** fixtures with the real response shapes from BNM and CFETS; latest-session selection and the monthly-close fallback; "no records" not tripping the back-off; units; 13-week volatility; OPR, RMB central parity and LPR parsing; one source down while the other keeps working; full offline fallback; caching; the off switch; and the FX alert using the live rate;
 - **`test_risk_i18n.py`:**
   - the noise-free simulation equals the deterministic forecast, results are reproducible, and the bands are ordered;

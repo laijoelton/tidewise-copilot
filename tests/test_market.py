@@ -123,16 +123,48 @@ class TestMarket(unittest.TestCase):
         self.assertIsNotNone(s["cny_myr_gap_pct"])
 
     def test_one_side_down_keeps_the_other(self):
-        s = market.snapshot(fake_world(cfets_up=False))
+        s = market.snapshot(fake_world(cfets_up=False), use_saved=False)
         self.assertEqual(s["usd_myr"]["source"], "bnm")
         self.assertEqual(s["china"]["lpr"]["source"], "fallback")
         self.assertIsNone(s["cny_myr_gap_pct"])
 
     def test_everything_down_falls_back_and_says_so(self):
-        s = market.snapshot(fake_world(cfets_up=False, bnm_up=False))
+        s = market.snapshot(fake_world(cfets_up=False, bnm_up=False), use_saved=False)
         self.assertEqual(s["usd_myr_sd_13w"], {"value": 0.03, "days": 0, "source": "fallback"})
         self.assertEqual(s["opr"]["source"], "fallback")
         self.assertEqual(s["china"]["cny_myr_parity"]["source"], "fallback")
+
+    def test_offline_uses_saved_real_data_and_labels_it(self):
+        s = market.snapshot(fake_world(cfets_up=False, bnm_up=False))
+        self.assertEqual(s["usd_myr"]["source"], "saved")
+        self.assertEqual(s["china"]["lpr"]["source"], "saved")
+        self.assertEqual(s["usd_myr_sd_13w"]["source"], "saved")
+        self.assertGreater(s["usd_myr_sd_13w"]["days"], 200)
+        self.assertTrue(0.005 < s["usd_myr_sd_13w"]["value"] < 0.10)
+
+    def test_saved_snapshot_is_valid(self):
+        sv = market._saved()
+        self.assertEqual(sv["captured"], "2026-10-20")
+        self.assertAlmostEqual(sv["cfets"]["cny_myr"]["rate"], 0.60859)
+        self.assertEqual(sv["bnm"]["opr"]["level_pct"], 2.75)
+
+    def test_pages_never_wait_on_the_network(self):
+        # Without a fetch function, snapshot() only reads the cache / saved file.
+        calls = []
+        orig = market._http
+        market._http = lambda url: calls.append(url) or (_ for _ in ()).throw(OSError("blocked"))
+        try:
+            market.snapshot()
+            market.fx_sd(0.03)
+        finally:
+            market._http = orig
+        self.assertEqual(calls, [])
+
+    def test_refresh_fills_cache_for_snapshot(self):
+        market.refresh(fake_world())
+        s = market.snapshot()                                               # cache only
+        self.assertEqual(s["usd_myr"]["source"], "bnm")
+        self.assertEqual(s["china"]["cny_myr_parity"]["source"], "cfets")
 
     def test_cache_avoids_refetching(self):
         f = fake_world()
@@ -150,7 +182,7 @@ class TestMarket(unittest.TestCase):
     def test_fx_alert_uses_live_rate(self):
         from tidewise import cashflow
         from tidewise.data import build_demo_company
-        market.snapshot(fake_world())                                       # warm the cache
+        market.refresh(fake_world())                                        # warm the cache
         text = cashflow._fx_detail(build_demo_company(), 100_000)
         self.assertIn("Bank Negara", text)
         self.assertIn("less", text)                                         # 4.08 < book 4.42

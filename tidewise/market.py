@@ -17,9 +17,11 @@ the People's Bank of China to publish the official RMB central parity):
 The books keep their fixed sandbox rates (models.FX_RATES), so the demo stays
 reproducible; live data adds context and calibrates the risk model.
 
-Never load-bearing: short timeouts, an on-disk cache, a back-off when a host
-is unreachable, and every value labelled with its source ("bnm", "cfets" or
-"fallback").
+Never load-bearing, and never on the request path: the API refreshes live
+data in a background thread (refresh_loop); pages read only the on-disk
+cache, then a snapshot of real BNM/CFETS data saved in the repo
+(market_snapshot.json), then built-in assumptions. Every value is labelled
+with its source: "bnm" / "cfets" (live or cached), "saved" or "fallback".
 
     TIDEWISE_LIVE_DATA = auto (default) | off
     python -m tidewise.market        # fetch now and print what Tidewise sees
@@ -28,6 +30,7 @@ is unreachable, and every value labelled with its source ("bnm", "cfets" or
 import json
 import math
 import os
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -46,6 +49,7 @@ TTL_HOURS = 6
 EMPTY_TTL_S = 1800                    # "no records yet" (e.g. 17:00 rate before 5pm): retry in 30 min
 RETRY_AFTER_FAIL_S = 600              # host unreachable: don't hang the UI retrying
 CACHE = Path(__file__).resolve().parent.parent / ".cache" / "market.json"
+SAVED = Path(__file__).resolve().parent / "market_snapshot.json"
 HISTORY_MONTHS = 12
 TRADING_DAYS_13W = 65
 FALLBACK = {"usd_myr_sd_13w": 0.03}
@@ -89,15 +93,15 @@ def _http(url: str) -> Any:
         raise
 
 
-def _get(url: str, fetch: Optional[Fetch] = None) -> Optional[Any]:
+def _get(url: str, fetch: Optional[Fetch] = None, network: bool = True) -> Optional[Any]:
     cache = _load_cache()
     hit = cache.get(url)
     now = time.time()
     if hit:
         ttl = EMPTY_TTL_S if hit.get("empty") else TTL_HOURS * 3600
-        if now - hit["at"] < ttl:
+        if now - hit["at"] < ttl or not network:
             return hit.get("body")
-    if not enabled():
+    if not network or not enabled():
         return hit.get("body") if hit else None
     host = url.split("/")[2]
     down = cache.get("__down__", {})
@@ -159,21 +163,25 @@ def _opr(body: Any) -> Optional[Dict[str, Any]]:
             "change_pct": float(data.get("change_in_opr") or 0)}
 
 
-def _month(code: str, y: int, m: int, fetch: Optional[Fetch]) -> List[Dict[str, Any]]:
-    return _rows(_get(f"{BNM}/exchange-rate/{code}/year/{y}/month/{m}?session=1700&quote=rm", fetch), code)
+def _month(code: str, y: int, m: int, fetch: Optional[Fetch], network: bool = True) -> List[Dict[str, Any]]:
+    return _rows(_get(f"{BNM}/exchange-rate/{code}/year/{y}/month/{m}?session=1700&quote=rm", fetch, network), code)
 
 
-def spot(code: str, fetch: Optional[Fetch] = None, today: Optional[date] = None) -> Optional[Dict[str, Any]]:
+def spot(code: str, fetch: Optional[Fetch] = None, today: Optional[date] = None,
+         network: bool = True) -> Optional[Dict[str, Any]]:
     """Latest BNM rate: today's latest published session, else the most recent
     17:00 close from the monthly history."""
+    best = None
     for s in BNM_SESSIONS:
-        rows = _rows(_get(f"{BNM}/exchange-rate/{code}?session={s}&quote=rm", fetch), code)
-        if rows:
-            return {**rows[-1], "session": s}
+        rows = _rows(_get(f"{BNM}/exchange-rate/{code}?session={s}&quote=rm", fetch, network), code)
+        if rows and (best is None or rows[-1]["date"] > best["date"]):
+            best = {**rows[-1], "session": s}
+    if best:
+        return best
     today = today or date.today()
     y, m = today.year, today.month
     for _ in range(2):
-        rows = _month(code, y, m, fetch)
+        rows = _month(code, y, m, fetch, network)
         if rows:
             return {**rows[-1], "session": "1700"}
         y, m = (y, m - 1) if m > 1 else (y - 1, 12)
@@ -181,12 +189,12 @@ def spot(code: str, fetch: Optional[Fetch] = None, today: Optional[date] = None)
 
 
 def history(code: str, months: int = HISTORY_MONTHS, today: Optional[date] = None,
-            fetch: Optional[Fetch] = None) -> List[Dict[str, Any]]:
+            fetch: Optional[Fetch] = None, network: bool = True) -> List[Dict[str, Any]]:
     today = today or date.today()
     out: Dict[str, float] = {}
     y, m = today.year, today.month
     for _ in range(months):
-        for r in _month(code, y, m, fetch):
+        for r in _month(code, y, m, fetch, network):
             out[r["date"]] = r["mid"]
         y, m = (y, m - 1) if m > 1 else (y - 1, 12)
     return [{"date": d, "mid": v} for d, v in sorted(out.items())]
@@ -201,14 +209,14 @@ def vol_13w(rows: List[Dict[str, Any]]) -> Optional[float]:
     return round(pstdev(rets) * math.sqrt(TRADING_DAYS_13W), 4)
 
 
-def opr(fetch: Optional[Fetch] = None) -> Optional[Dict[str, Any]]:
-    return _opr(_get(f"{BNM}/opr", fetch))
+def opr(fetch: Optional[Fetch] = None, network: bool = True) -> Optional[Dict[str, Any]]:
+    return _opr(_get(f"{BNM}/opr", fetch, network))
 
 
 # -- CFETS (China) -------------------------------------------------------------------
-def cfets_parity(fetch: Optional[Fetch] = None) -> Dict[str, Dict[str, Any]]:
+def cfets_parity(fetch: Optional[Fetch] = None, network: bool = True) -> Dict[str, Dict[str, Any]]:
     """RMB central parity, e.g. {"USD/CNY": {...}, "CNY/MYR": {...}}."""
-    body = _get(f"{CFETS}/fx/ccpr.json", fetch)
+    body = _get(f"{CFETS}/fx/ccpr.json", fetch, network)
     if not isinstance(body, dict):
         return {}
     when = str((body.get("data") or {}).get("lastDate") or "")[:10]
@@ -221,9 +229,9 @@ def cfets_parity(fetch: Optional[Fetch] = None) -> Dict[str, Dict[str, Any]]:
     return out
 
 
-def lpr(fetch: Optional[Fetch] = None) -> Optional[Dict[str, Any]]:
+def lpr(fetch: Optional[Fetch] = None, network: bool = True) -> Optional[Dict[str, Any]]:
     """China's Loan Prime Rate (1Y and 5Y), in percent."""
-    body = _get(f"{CFETS}/currency/bk-lpr.json", fetch)
+    body = _get(f"{CFETS}/currency/bk-lpr.json", fetch, network)
     if not isinstance(body, dict):
         return None
     terms = {}
@@ -239,33 +247,97 @@ def lpr(fetch: Optional[Fetch] = None) -> Optional[Dict[str, Any]]:
 
 
 # -- public API ----------------------------------------------------------------------
-def snapshot(fetch: Optional[Fetch] = None) -> Dict[str, Any]:
-    """Everything Tidewise uses, each value labelled with where it came from."""
+def _saved() -> Dict[str, Any]:
+    try:
+        return json.loads(SAVED.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def refresh(fetch: Optional[Fetch] = None) -> Dict[str, Any]:
+    """Fetch everything from the network into the cache (slow: ~15 requests)."""
+    spot("USD", fetch)
+    spot("CNY", fetch)
+    history("USD", fetch=fetch)
+    opr(fetch)
+    cfets_parity(fetch)
+    lpr(fetch)
+    return snapshot(fetch)
+
+
+def refresh_loop() -> None:
+    """Background refresher for the API process: never blocks a request."""
+    while enabled():
+        try:
+            refresh()
+        except Exception:
+            pass
+        time.sleep(TTL_HOURS * 3600)
+
+
+def start_background_refresh() -> Optional[threading.Thread]:
+    if not enabled():
+        return None
+    t = threading.Thread(target=refresh_loop, name="tidewise-market", daemon=True)
+    t.start()
+    return t
+
+
+def snapshot(fetch: Optional[Fetch] = None, use_saved: bool = True) -> Dict[str, Any]:
+    """Everything Tidewise uses, each value labelled with where it came from.
+    Without `fetch` it reads only the cache (fast, no network); missing pieces
+    come from the saved snapshot, then the built-in fallback."""
     from .models import FX_RATES
-    usd, cny = spot("USD", fetch), spot("CNY", fetch)
-    hist = history("USD", fetch=fetch) if usd else []
-    sd = vol_13w(hist)
-    o = opr(fetch)
-    par = cfets_parity(fetch)
-    l = lpr(fetch)
-    cn_myr = par.get("CNY/MYR")
+    net = fetch is not None
+    sv = _saved() if use_saved else {}
+    sb, sc = sv.get("bnm", {}), sv.get("cfets", {})
+
+    usd, cny = spot("USD", fetch, network=net), spot("CNY", fetch, network=net)
+    usd_src = "bnm" if usd else None
+    if not usd and sb.get("usd_spot"):
+        usd, usd_src = sb["usd_spot"], "saved"
+    cny_src = "bnm" if cny else None
+    if not cny and sb.get("cny_spot"):
+        cny, cny_src = sb["cny_spot"], "saved"
+
+    hist = history("USD", fetch=fetch, network=net) if usd_src == "bnm" else []
+    sd, sd_src = vol_13w(hist), "bnm"
+    if sd is None and sb.get("usd_history_1700"):
+        hist, sd_src = sb["usd_history_1700"], "saved"
+        sd = vol_13w(hist)
+
+    o, o_src = opr(fetch, network=net), "bnm"
+    if not o and sb.get("opr"):
+        o, o_src = sb["opr"], "saved"
+
+    par = cfets_parity(fetch, network=net)
+    cn_myr, cn_src = par.get("CNY/MYR"), "cfets"
+    if not cn_myr and sc.get("cny_myr"):
+        cn_myr, cn_src = sc["cny_myr"], "saved"
+    us_cny, uc_src = par.get("USD/CNY"), "cfets"
+    if not us_cny and sc.get("usd_cny"):
+        us_cny, uc_src = sc["usd_cny"], "saved"
+    l, l_src = lpr(fetch, network=net), "cfets"
+    if not l and sc.get("lpr"):
+        l, l_src = sc["lpr"], "saved"
+
     return {
         "providers": {"bnm": "Bank Negara Malaysia Open API (api.bnm.gov.my)",
                       "cfets": "China Foreign Exchange Trade System, for the People's Bank of China (chinamoney.com.cn)"},
         "live_enabled": enabled(),
-        "usd_myr": {"rate": round(usd["mid"], 4), "date": usd["date"], "session": usd["session"],
-                    "book_rate": FX_RATES["USD"], "source": "bnm"}
+        "saved_on": sv.get("captured"),
+        "usd_myr": {"rate": round(usd["mid"], 4), "date": usd["date"], "session": usd.get("session"),
+                    "book_rate": FX_RATES["USD"], "source": usd_src}
         if usd else {"rate": None, "book_rate": FX_RATES["USD"], "source": "fallback"},
-        "cny_myr": {"rate": round(cny["mid"], 4), "date": cny["date"], "source": "bnm"} if cny
+        "cny_myr": {"rate": round(cny["mid"], 4), "date": cny["date"], "source": cny_src} if cny
         else {"rate": None, "source": "fallback"},
-        "usd_myr_sd_13w": {"value": sd, "days": len(hist), "source": "bnm"} if sd is not None
+        "usd_myr_sd_13w": {"value": sd, "days": len(hist), "source": sd_src} if sd is not None
         else {"value": FALLBACK["usd_myr_sd_13w"], "days": 0, "source": "fallback"},
-        "opr": {**o, "source": "bnm"} if o else {"level_pct": None, "source": "fallback"},
+        "opr": {**o, "source": o_src} if o else {"level_pct": None, "source": "fallback"},
         "china": {
-            "cny_myr_parity": {**cn_myr, "source": "cfets"} if cn_myr else {"rate": None, "source": "fallback"},
-            "usd_cny_parity": {**par["USD/CNY"], "source": "cfets"} if "USD/CNY" in par
-            else {"rate": None, "source": "fallback"},
-            "lpr": {**l, "source": "cfets"} if l else {"1y_pct": None, "source": "fallback"},
+            "cny_myr_parity": {**cn_myr, "source": cn_src} if cn_myr else {"rate": None, "source": "fallback"},
+            "usd_cny_parity": {**us_cny, "source": uc_src} if us_cny else {"rate": None, "source": "fallback"},
+            "lpr": {**l, "source": l_src} if l else {"1y_pct": None, "source": "fallback"},
         },
         # Malaysia's and China's official yuan-ringgit rates, side by side.
         "cny_myr_gap_pct": round((cny["mid"] / cn_myr["rate"] - 1) * 100, 2) if (cny and cn_myr) else None,
@@ -273,12 +345,13 @@ def snapshot(fetch: Optional[Fetch] = None) -> Dict[str, Any]:
 
 
 def fx_sd(default: float) -> Dict[str, Any]:
-    """The USD/MYR 13-week s.d. the Monte Carlo should use, with its source."""
+    """The USD/MYR 13-week s.d. the Monte Carlo should use, with its source.
+    Reads the cache / saved snapshot only, so it never touches the network."""
     try:
         s = snapshot()["usd_myr_sd_13w"]
     except Exception:
         return {"value": default, "source": "fallback", "days": 0}
-    return s if s["source"] == "bnm" else {"value": default, "source": "fallback", "days": 0}
+    return s if s["source"] in ("bnm", "saved") else {"value": default, "source": "fallback", "days": 0}
 
 
 if __name__ == "__main__":
@@ -287,4 +360,6 @@ if __name__ == "__main__":
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
+    print("Fetching from Bank Negara Malaysia and CFETS (can take ~15 s)...", file=sys.stderr)
+    refresh()
     print(json.dumps(snapshot(), indent=2, ensure_ascii=False))

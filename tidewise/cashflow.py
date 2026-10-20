@@ -307,12 +307,12 @@ def _fx_detail(company: Company, foreign_myr: float) -> str:
         snap = None
     usd = (snap or {}).get("usd_myr", {})
     sd = (snap or {}).get("usd_myr_sd_13w", {})
-    if usd.get("source") == "bnm":
+    if usd.get("source") in ("bnm", "saved"):
         usd_open = sum(i.amount for i in company.open_invoices() if i.currency == "USD")
         diff = usd_open * (usd["rate"] - usd["book_rate"])
         text = (f"Bank Negara's USD/MYR on {usd['date']} is {usd['rate']:.4f} vs your book rate {usd['book_rate']:.2f}: "
                 f"your USD receivables are worth RM {abs(diff):,.0f} {'more' if diff >= 0 else 'less'} at today's rate. ")
-        if sd.get("source") == "bnm":
+        if sd.get("source") in ("bnm", "saved"):
             return text + (f"A typical 13-week move ({sd['value']:.1%}, from {sd['days']} days of BNM rates) shifts them "
                            f"by about RM {foreign_myr * sd['value']:,.0f}.")
         return text + f"A 3% move changes them by about RM {foreign_myr * 0.03:,.0f}."

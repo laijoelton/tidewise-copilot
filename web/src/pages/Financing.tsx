@@ -8,7 +8,9 @@ function LiveRates() {
   const { data: s } = useLoad(api.market)
   if (!s) return null
   const cn = s.china
-  const src = (x: Json) => (x?.source === 'fallback' ? <span className="text-ink3">offline</span> : <span className="text-ink3">{x.date ? shortDate(x.date) : ''}</span>)
+  const src = (x: Json) => (x?.source === 'fallback'
+    ? <span className="text-ink3">offline</span>
+    : <span className="text-ink3">{x.date ? shortDate(x.date) : ''}{x.source === 'saved' ? ' · saved' : ' · live'}</span>)
   const rows: [string, string, string, Json][] = [
     ['USD / MYR', fx(s.usd_myr.rate), 'Bank Negara Malaysia', s.usd_myr],
     ['CNY / MYR', fx(s.cny_myr.rate), 'Bank Negara Malaysia', s.cny_myr],
@@ -29,6 +31,7 @@ function LiveRates() {
       </table>
       <p className="mt-3 text-[12.5px] text-ink3">
         {s.cny_myr_gap_pct != null && <>Malaysia's and China's official yuan–ringgit rates differ by {Math.abs(s.cny_myr_gap_pct).toFixed(2)}%. </>}
+        {Object.values({ a: s.usd_myr, b: s.opr, c: cn.lpr }).some((x: Json) => x.source === 'saved') && <>Live services unreachable: showing real data saved on {shortDate(s.saved_on)}. </>}
         Your books use fixed sandbox rates (USD {fx(s.usd_myr.book_rate, 2)}) so the demo is reproducible; live rates value your foreign receivables today and set the currency swing in the risk simulation.
       </p>
     </Panel>
@@ -42,6 +45,7 @@ export default function Financing() {
     <>
       <PageHead title="Financing" />
       <Empty>No funding gap in the 13-week forecast — nothing to borrow.</Empty>
+      <LiveRates />
     </>
   )
 

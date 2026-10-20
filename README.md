@@ -39,8 +39,8 @@ Tidewise is an AI agent for the owner of a small manufacturing business. It does
 
 Ask "what if Harbour pays 30 days late and sales drop 20%?" and Tidewise re-runs the forecast without touching the books.
 
-7. **One number hides the risk, so Tidewise runs 2,000 futures.** The single forecast says the gap is RM 92,020. Across 2,000 simulated futures, the typical gap is RM 110,537 and 1 in 10 futures needs **RM 132,528**. Each future draws payment dates from each customer's own history, the ML collection-risk tail, hold lengths, USD/MYR and sales.
-8. **"Make me 95% safe."** The usual plan (fix the invoice, move the timber bill) costs RM 1,440 and closes the single forecast's gap, but it still leaves a **59% chance** of dipping below the floor. Tidewise searches combinations of real actions on a copy of the books and finds the cheapest plan to be 95% safe: **RM 2,470 → 4.0%**, i.e. RM 1,030 more removes 55 points of risk. Say "make me 95% safe" and each step is proposed through the same permission policy. After the steps are approved and executed, a fresh simulation with independent random draws confirms the promised risk (4.0–4.3%).
+7. **One number hides the risk, so Tidewise runs 2,000 futures.** The single forecast says the gap is RM 92,020. Across 2,000 simulated futures, the typical gap is RM 110,710 and 1 in 10 futures needs **RM 132,439**. Each future draws payment dates from each customer's own history, the ML collection-risk tail, hold lengths, USD/MYR (with the swing measured from 12 months of Bank Negara rates) and sales.
+8. **"Make me 95% safe."** The usual plan (fix the invoice, move the timber bill) costs RM 1,440 and closes the single forecast's gap, but it still leaves a **59% chance** of dipping below the floor. Tidewise searches combinations of real actions on a copy of the books and finds the cheapest plan to be 95% safe: **RM 2,470 → 3.3%**, i.e. RM 1,030 more removes 56 points of risk. Say "make me 95% safe" and each step is proposed through the same permission policy. After the steps are approved and executed, the dashboard shows the same risk the planner promised: both use the same 2,000 futures.
 9. **Ask in 中文 or Bahasa Malaysia.** "我跌破安全线的概率有多大？" or "Apa patut saya buat minggu ini?" route and reply in that language, offline. With Gemini the whole reply is written in that language, and the number-grounding firewall still checks every figure.
 10. **Live central-bank data from Malaysia and China.**
     - **Bank Negara Malaysia (free Open API):** today's USD/MYR and CNY/MYR value the foreign receivables; 12 months of BNM rates set the Monte Carlo's currency swing (replacing a hand-set 3%); the OPR appears on the Financing page.
@@ -168,7 +168,7 @@ Optional: put `GEMINI_API_KEY` in `.env` (see `.env.example`) and Gemini will ph
 python run_tests.py
 ```
 
-This runs 99 tests covering live Bank Negara and CFETS data (offline fixtures), the agent loop, policy, sandbox, guard, ML models, three-way match, bookings, forecast, what-if, Monte Carlo risk and the confidence planner, financing, the multilingual Copilot, red team and the Merkle log.
+This runs 103 tests covering live Bank Negara and CFETS data (offline fixtures), the agent loop, policy, sandbox, guard, ML models, three-way match, bookings, forecast, what-if, Monte Carlo risk and the confidence planner, financing, the multilingual Copilot, red team and the Merkle log.
 
 ```bash
 python -m tidewise.redteam

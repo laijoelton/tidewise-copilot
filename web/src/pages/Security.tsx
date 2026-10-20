@@ -54,7 +54,7 @@ export default function Security() {
         action={<button className="btn btn-primary" disabled={busy} onClick={async () => { setBusy(true); setReport(await api.redteam()); setBusy(false) }}>
           <Play size={14} /> {busy ? 'Running…' : 'Run attacks now'}</button>}>
         {!report ? (
-          <p className="text-ink3">Runs 25 attack scenarios — invoice-redirection fraud (incl. look-alike Unicode domains), hidden and non-English prompt injection, duplicate and split payments, data exfiltration, self-escalation, approval bypass, audit tampering, invented numbers in model output, kill switch, paraphrased fraud only ML catches, padded bills — each against a fresh copy of the real policy, sandbox and audit code.</p>
+          <p className="text-ink3">Runs 28 attack scenarios — invoice-redirection fraud (incl. look-alike Unicode domains), hidden and non-English prompt injection, duplicate and split payments, data exfiltration, self-escalation, approval bypass, audit tampering, invented numbers in model output, kill switch, paraphrased fraud only ML catches, padded bills — each against a fresh copy of the real policy, sandbox and audit code.</p>
         ) : (
           <>
             <div className="mb-3 text-[15px]"><span className="num font-semibold text-ok">{report.passed}/{report.total}</span> attacks handled as expected</div>

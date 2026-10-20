@@ -21,11 +21,11 @@
     "p_below_floor": 1.0,
     "p_negative": 1.0,
     "gap": {
-      "p50": 110537.0,
-      "p90": 132528.0,
-      "p95": 140032.0
+      "p50": 110710.0,
+      "p90": 132439.0,
+      "p95": 139957.0
     },
-    "expected_gap": 109556.0,
+    "expected_gap": 109551.0,
     "first_breach": {
       "p10": "2026-10-25",
       "p50": "2026-10-26"
@@ -78,7 +78,7 @@
   },
   "confidence_plan_95": {
     "p_now": 1.0,
-    "p_after": 0.04,
+    "p_after": 0.033,
     "reached": true,
     "total_cost": 2470.0,
     "ladder": [
@@ -88,7 +88,7 @@
         "cost": 0.0,
         "cum_cost": 0.0,
         "p_below_floor": 1.0,
-        "expected_gap": 109047.0
+        "expected_gap": 109551.0
       },
       {
         "step": 1,
@@ -97,7 +97,7 @@
         "cost": 0.0,
         "cum_cost": 0.0,
         "p_below_floor": 1.0,
-        "expected_gap": 104571.0,
+        "expected_gap": 104911.0,
         "action": {
           "type": "send_corrected_invoice",
           "invoice_id": "INV-2041"
@@ -109,8 +109,8 @@
         "kind": "supplier_extension",
         "cost": 1440.0,
         "cum_cost": 1440.0,
-        "p_below_floor": 0.586,
-        "expected_gap": 12297.0,
+        "p_below_floor": 0.594,
+        "expected_gap": 12154.0,
         "action": {
           "type": "request_supplier_extension",
           "bill_id": "BILL-771",
@@ -124,8 +124,8 @@
         "kind": "financing",
         "cost": 1030.0,
         "cum_cost": 2470.0,
-        "p_below_floor": 0.04,
-        "expected_gap": 1333.0,
+        "p_below_floor": 0.033,
+        "expected_gap": 948.0,
         "action": {
           "type": "apply_financing",
           "product_id": "INVFIN",
@@ -136,9 +136,9 @@
     "classic": {
       "title": "Cover the single-forecast gap: Send corrected INV-2041 to Vanderhoek Interiors BV (matches their PO); Ask Hutan Lestari Timber Sdn Bhd to move BILL-771 (RM 96,000) by 30 days, 1.5% surcharge",
       "cost": 1440.0,
-      "p_below_floor": 0.586,
-      "expected_gap": 12297.0,
-      "gap_p90": 32243.0
+      "p_below_floor": 0.594,
+      "expected_gap": 12154.0,
+      "gap_p90": 32446.0
     },
     "combinations_tried": 4
   },
@@ -149,9 +149,9 @@
     "gap": {
       "p50": 0.0,
       "p90": 0.0,
-      "p95": 5101.0
+      "p95": 5090.0
     },
-    "expected_gap": 1178.0,
+    "expected_gap": 1177.0,
     "first_breach": {
       "p10": "2026-10-25",
       "p50": "2026-10-25"

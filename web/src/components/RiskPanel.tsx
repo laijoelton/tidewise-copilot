@@ -73,7 +73,9 @@ export function RiskPanel({ weekly }: { weekly: Json[] }) {
         Each future draws payment dates from each customer's own history, adds the ML collection-risk tail (paid 30+ days late),
         varies how long a PO-mismatch hold lasts, USD/MYR, deposits and run-rate sales. Bills, payroll and repayments stay fixed.
         {' '}USD/MYR swing: <span className="num">{pct(r.fx_volatility.value, 1)}</span> over 13 weeks
-        {r.fx_volatility.source === 'bnm' ? `, from ${r.fx_volatility.days} days of live Bank Negara rates.` : ' (built-in assumption; Bank Negara data not reachable).'}
+        {r.fx_volatility.source === 'bnm' ? `, from ${r.fx_volatility.days} days of live Bank Negara rates.`
+          : r.fx_volatility.source === 'saved' ? `, from ${r.fx_volatility.days} days of Bank Negara rates (saved).`
+          : ' (built-in assumption; Bank Negara data not reachable).'}
       </p>
     </Panel>
   )
@@ -112,12 +114,12 @@ export function ConfidencePlanner({ go }: { go?: (p: Page) => void }) {
         <>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-xl border border-edge bg-sub/40 p-4">
-              <div className="eyebrow">The usual plan · cover the single forecast's gap</div>
+              <div className="eyebrow">{plan.classic.cost > 0 ? "The usual plan · cover the single forecast's gap" : 'The single forecast · says no gap'}</div>
               <div className="mt-2 flex items-baseline gap-3">
-                <span className="num text-[26px] font-semibold text-bad">{pct(plan.classic.p_below_floor)}</span>
+                <span className={cx('num text-[26px] font-semibold', plan.classic.p_below_floor > 0.2 ? 'text-bad' : plan.classic.p_below_floor > plan.target ? 'text-warn' : 'text-ok')}>{pct(plan.classic.p_below_floor)}</span>
                 <span className="text-[13px] text-ink2">still dip below your floor</span>
               </div>
-              <div className="mt-1 text-[12.5px] text-ink3">costs {rm(plan.classic.cost)} · 1 in 10 futures still short by {rm(plan.classic.gap_p90)}</div>
+              <div className="mt-1 text-[12.5px] text-ink3">{plan.classic.cost > 0 ? `costs ${rm(plan.classic.cost)} · ` : 'no action suggested · '}1 in 10 futures still short by {rm(plan.classic.gap_p90)}</div>
             </div>
             <div className="rounded-xl border border-brand/40 bg-brand/5 p-4">
               <div className="eyebrow">Tidewise · cheapest plan to {pct(1 - plan.target)} safe</div>

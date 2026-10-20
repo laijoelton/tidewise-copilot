@@ -311,7 +311,7 @@ def _with(base: Company, levers: List[Lever]) -> Company:
     return c
 
 
-def plan_for_confidence(company: Company, target: float = 0.05, sims: int = 1000, seed: int = SEED,
+def plan_for_confidence(company: Company, target: float = 0.05, sims: int = SIMS, seed: int = SEED,
                         step: float = 5_000) -> Dict[str, Any]:
     """Cheapest set of actions that brings P(below floor) to `target` or less.
 

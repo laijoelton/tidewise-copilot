@@ -157,6 +157,12 @@ T: Dict[str, Dict[str, str]] = {
               "典型缺口为 {p50}，十分之一的情况下需要 {p90}。",
         "ms": "Dalam {n} masa depan yang disimulasi, {p} jatuh di bawah paras minimum anda. Ramalan tunggal memberi jurang "
               "{det}; kekurangan biasa ialah {p50}, dan 1 dalam 10 masa depan memerlukan {p90}."},
+    "risk_head_nogap": {
+        "en": "The single forecast shows no gap, but in {n} simulated futures {p} still dip below your floor — "
+              "1 in 10 futures needs {p90}.",
+        "zh": "单一预测显示没有资金缺口，但在 {n} 次模拟的未来中，仍有 {p} 会跌破您的安全线——十分之一的情况下需要 {p90}。",
+        "ms": "Ramalan tunggal tidak menunjukkan jurang, tetapi dalam {n} masa depan yang disimulasi, {p} masih jatuh di "
+              "bawah paras minimum anda — 1 dalam 10 memerlukan {p90}."},
     "risk_classic": {
         "en": "The usual plan (cover the single forecast's gap) costs {cost} but still leaves a {p} chance of breaching your floor.",
         "zh": "常规方案（只补足单一预测的缺口）成本 {cost}，但仍有 {p} 的概率跌破安全线。",

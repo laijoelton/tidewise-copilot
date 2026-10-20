@@ -35,6 +35,7 @@ OWNER_TOKEN = os.environ.get("TIDEWISE_OWNER_TOKEN") or "demo-owner-" + secrets.
 ALLOWED_ORIGINS = os.environ.get("TIDEWISE_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
 
 app = FastAPI(title="Tidewise API", version="0.1")
+market.start_background_refresh()   # live BNM / CFETS data, fetched off the request path
 app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=["GET", "POST"],
                    allow_headers=["Content-Type", "X-Owner-Token"])
 

@@ -695,10 +695,15 @@ class Agent:
         rk = facts.get("risk")
         if rk:
             sim, plan = rk["simulation"], rk["plan"]
-            out.append(L("risk_head", n=f"{sim['sims']:,}", p=f"{sim['p_below_floor']:.0%}",
-                         det=_rm(sim["deterministic"]["funding_gap"]), p50=_rm(sim["gap"]["p50"]), p90=_rm(sim["gap"]["p90"])))
-            cl = plan["classic"]
-            out.append(L("risk_classic", cost=_rm(cl["cost"]), p=f"{cl['p_below_floor']:.0%}"))
+            if sim["deterministic"]["funding_gap"] > 0:
+                out.append(L("risk_head", n=f"{sim['sims']:,}", p=f"{sim['p_below_floor']:.0%}",
+                             det=_rm(sim["deterministic"]["funding_gap"]), p50=_rm(sim["gap"]["p50"]),
+                             p90=_rm(sim["gap"]["p90"])))
+                cl = plan["classic"]
+                out.append(L("risk_classic", cost=_rm(cl["cost"]), p=f"{cl['p_below_floor']:.0%}"))
+            else:
+                out.append(L("risk_head_nogap", n=f"{sim['sims']:,}", p=f"{sim['p_below_floor']:.0%}",
+                             p90=_rm(sim["gap"]["p90"])))
             section(L("risk_plan_title", target=f"{1 - plan['target']:.0%}", cost=_rm(plan["total_cost"]),
                       p=f"{plan['p_after']:.1%}"),
                     [f"{x['title']} — {_rm(x['cost'])} → {x['p_below_floor']:.1%}" for x in plan["ladder"][1:]])
