@@ -45,7 +45,10 @@ export default function Today({ go }: { go: (p: Page) => void }) {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Cash today" value={rm(data.cash_myr)} hint={data.accounts.map((a: Json) => `${a.currency} ${a.balance.toLocaleString()}`).join(' · ')} />
         <Stat label="Lowest point · 13 weeks" value={rm(fc.trough.balance)} hint={shortDate(fc.trough.date)} tone={fc.trough.balance < 0 ? 'bad' : fc.trough.balance < data.cash_buffer ? 'warn' : 'ok'} />
-        <Stat label="Funding gap" value={rm(fc.funding_gap)} hint={gap ? `to stay above your ${rm(data.cash_buffer)} floor` : 'none — no need to borrow'} tone={gap ? 'bad' : 'ok'} />
+        <Stat label="Funding gap" value={rm(fc.funding_gap)} tone={gap ? 'bad' : 'ok'}
+          hint={data.risk ? <button className="text-left hover:underline" onClick={() => go('cash')}>
+            {Math.round(data.risk.p_below_floor * 100)}% chance of breaching your floor · 1 in 10 futures needs {rm(data.risk.gap.p90)} →</button>
+            : gap ? `to stay above your ${rm(data.cash_buffer)} floor` : 'none — no need to borrow'} />
         <Stat label="Waiting for you" value={data.pending_approvals} hint={<button className="text-brand hover:underline" onClick={() => go('approvals')}>open approvals →</button>} tone={data.pending_approvals ? 'warn' : undefined} />
       </div>
 

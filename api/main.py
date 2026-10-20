@@ -26,7 +26,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
 from tidewise.engine.ratelimit import RateLimiter  # noqa: E402
-from tidewise import analysis, bookings, cashflow, financing, matching, redteam  # noqa: E402
+from tidewise import analysis, bookings, cashflow, financing, matching, redteam, risk  # noqa: E402
 from datetime import date as _date  # noqa: E402
 from tidewise.agent import Workspace  # noqa: E402
 from tidewise.policy import BASE_TIER, TIER_LABEL  # noqa: E402
@@ -70,6 +70,7 @@ def _announce():
 # -- models --------------------------------------------------------------------------
 class ChatIn(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
+    lang: Optional[str] = Field(default=None, pattern="^(en|zh|ms)$")   # None = detect from the message
 
 
 class ApproveIn(BaseModel):
@@ -129,6 +130,7 @@ def overview():
         "forecast": {k: fc[k] for k in ("opening_balance", "trough", "funding_gap", "first_buffer_breach",
                                         "first_negative", "weekly")},
         "alerts": fc["alerts"],
+        "risk": {k: v for k, v in risk.simulate(c).items() if k in ("p_below_floor", "p_negative", "gap", "sims")},
         "pending_approvals": len(ws.agent.pending()),
         "audit": ws.audit.verify(),
         "llm": bool(ws.llm and ws.llm.available),
@@ -255,7 +257,7 @@ def sandbox():
 # -- conversation channel ------------------------------------------------------------
 @app.post("/api/chat")
 def chat(body: ChatIn):
-    return ws.agent.chat(body.message)
+    return ws.agent.chat(body.message, body.lang)
 
 
 @app.get("/api/approvals")
@@ -305,6 +307,23 @@ def customer_pays_deposit(body: OrderRef):
     ws.audit.record("external_event", "customer", {"order_id": body.order_id, "ref": r["ref"]})
     ws.audit.seal()
     return {"receipt": r}
+
+
+@app.get("/api/risk")
+def get_risk():
+    """Monte Carlo forecast: probability of breaching the floor, gap percentiles,
+    fan-chart bands and the receipts that drive the risk."""
+    return risk.simulate(ws.company)
+
+
+@app.get("/api/risk/plan")
+def get_risk_plan(target: float = 0.05):
+    """Cheapest set of actions that brings the breach probability to `target`.
+    Read-only: simulated on a copy of the books. To act on it, the owner asks
+    the Copilot ("make me 95% safe"), and every step goes through policy."""
+    if not 0.001 <= target <= 0.5:
+        raise HTTPException(422, "target must be between 0.001 and 0.5")
+    return risk.plan_for_confidence(ws.company, target=target)
 
 
 @app.post("/api/whatif")

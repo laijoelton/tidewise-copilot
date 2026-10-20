@@ -15,14 +15,14 @@ function useVersion() {
   )
 }
 
-export function useLoad<T>(fn: () => Promise<T>) {
+export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
   const v = useVersion()
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState<string | null>(null)
   const reload = useCallback(() => {
     fn().then((d) => { setData(d); setError(null) }).catch((e) => setError(String(e.message || e)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, deps)
   useEffect(() => { reload() }, [reload, v])
   return { data, error, reload }
 }

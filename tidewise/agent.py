@@ -23,13 +23,14 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import analysis, bookings, cashflow, financing, guard, matching
+from . import analysis, bookings, cashflow, financing, guard, i18n, matching, risk
 from .audit import AuditTrail
 from .data import build_demo_company
 from .llm import LLM
 from .models import Company, to_base
 from .policy import Action, Limits, Policy, Tier
 from .sandbox import SandboxBank, SandboxError
+from .i18n import L
 
 EVIDENCE_DIR = Path(__file__).resolve().parent.parent / "evidence"
 
@@ -43,6 +44,7 @@ INTENTS = {
     "inbox": "screen the inbox for fraud and prompt injection",
     "receivables": "who owes money, overdue invoices",
     "bills": "upcoming bills to pay",
+    "risk": "probability of running short (Monte Carlo), worst cases, and the cheapest plan to be 95% safe",
 }
 
 ROUTES = [
@@ -55,6 +57,8 @@ ROUTES = [
     ("inbox", r"\b(inbox|email|e-mail|message|phish|fraud|scam|suspicious)\w*"),
     ("receivables", r"\b(owe|owed|receivable|overdue|unpaid invoice|customers? (who )?(haven't|have not) paid)\b"),
     ("bills", r"\b(bills?|payables?|suppliers?|due)\b"),
+    ("risk", r"\b(how (likely|sure|confident|risky)|chances?|probabilit\w*|odds|worst.case|risk of|confiden\w*|"
+             r"sleep at night|monte carlo|\d+\s*%\s*(safe|sure|confident))"),
 ]
 
 
@@ -180,35 +184,38 @@ class Agent:
         self.ws = ws
 
     # -- public ---------------------------------------------------------------------
-    def chat(self, text: str) -> Dict[str, Any]:
+    def chat(self, text: str, lang: Optional[str] = None) -> Dict[str, Any]:
         ws = self.ws
+        lang = lang if lang in i18n.LANGS else i18n.detect(text)
+        i18n.set_lang(lang)
+        original, text = text, i18n.to_routing_text(text, lang)   # routing only; the owner's words are logged
         ws.policy.auto_actions_this_turn = 0
         steps: List[Dict[str, Any]] = []
-        ws.audit.record("owner_message", "owner", {"text": guard.mask(text)})
+        ws.audit.record("owner_message", "owner", {"text": guard.mask(original), "lang": lang})
 
         facts: Dict[str, Any] = {}
+        self._last_facts = {}
         scenario = parse_whatif(text, self.ws.company)
         if scenario:
             facts["whatif"] = self._do_whatif(steps, scenario)
             handled = True
         else:
             handled = self._owner_commands(text, steps)
+            facts.update(self._last_facts)
         intents = [] if handled else self._route(text)
         for intent in intents:
             facts[intent] = getattr(self, f"_do_{intent}")(steps)
 
         if not handled and not intents:
-            reply = ("I can forecast your cash, check trade documents, screen your inbox, analyse the business, "
-                     "match financing, run what-if scenarios, send reminders and pay approved bills within your limits. "
-                     "Try “what should I do this week?” or “what if Harbour pays 30 days late?”")
+            reply = L("help")
         else:
             reply = self._template_reply(intents, facts, steps)
             if ws.llm and ws.llm.available:
-                reply = ws.llm.narrate(text, {"intents": intents, "facts": self._facts_for_llm(facts),
-                                              "actions": [self._step_brief(s) for s in steps if s["kind"] == "action"]},
-                                       reply)
+                reply = ws.llm.narrate(original, {"intents": intents, "facts": self._facts_for_llm(facts),
+                                                  "actions": [self._step_brief(s) for s in steps if s["kind"] == "action"]},
+                                       reply, lang=lang)
         batch = ws.audit.seal()
-        return {"reply": reply, "intents": intents, "steps": steps,
+        return {"reply": reply, "intents": intents, "steps": steps, "lang": lang,
                 "pending_approvals": self.pending(), "audit_batch": batch,
                 "llm": bool(ws.llm and ws.llm.available)}
 
@@ -300,6 +307,12 @@ class Agent:
         t = text.lower()
         acct = guard.ACCOUNT_NUMBER.search(text)
         handled = False
+        m = re.search(r"\b(make|get|keep)\b.{0,20}?\b(\d{2}(?:\.\d)?)\s*%\s*(safe|sure|confident|certain)", t) or \
+            re.search(r"\b(bullet.?proof|make (me|us|it) safe)\b", t)
+        if m:
+            pct = float(m.group(2)) if m.lastindex and m.lastindex >= 2 and m.group(2) and m.group(2)[0].isdigit() else 95.0
+            self._last_facts = {"risk": self._do_confidence_plan(steps, max(0.001, 1 - pct / 100), act=True)}
+            return True
         if re.search(r"\b(approve|confirm)\b.*\b(all|everything|pending)\b", t):
             steps.append({"kind": "note", "text": "Approvals can only be given with the Approve button in the "
                                                   "Approvals panel, not through chat."})
@@ -354,6 +367,48 @@ class Agent:
         r = cashflow.whatif(self.ws.company, scenario)
         return self._read("what_if", steps, "; ".join(r["changes"])
                           + f" → gap RM {r['baseline']['funding_gap']:,.0f} → RM {r['whatif']['funding_gap']:,.0f}", r)
+
+    def _do_risk(self, steps):
+        return self._do_confidence_plan(steps, 0.05, act=False)
+
+    def _do_confidence_plan(self, steps, target: float, act: bool):
+        """Monte Carlo forecast + the cheapest plan to reach the target breach
+        probability. With act=True (the owner asked for it) each step of the
+        plan is proposed — and the permission policy decides, as always."""
+        c = self.ws.company
+        sim = risk.simulate(c)
+        plan = risk.plan_for_confidence(c, target=target)
+        self._read("monte_carlo_forecast", steps,
+                   f"{sim['sims']:,} simulated futures: {sim['p_below_floor']:.0%} dip below the floor; "
+                   f"gap P50 RM {sim['gap']['p50']:,.0f}, P90 RM {sim['gap']['p90']:,.0f}", sim)
+        self._read("confidence_planner", steps,
+                   f"target ≤{target:.0%} breach risk: {len(plan['ladder']) - 1} step(s), RM {plan['total_cost']:,.0f} → "
+                   f"{plan['p_after']:.1%}; usual plan leaves {plan['classic']['p_below_floor']:.0%}", plan)
+        if act:
+            for st in plan["ladder"][1:]:
+                a = st["action"]
+                why = f"confidence plan step {st['step']}: breach risk → {st['p_below_floor']:.1%}"
+                ref = a.get("bill_id") or a.get("product_id") or a.get("invoice_id")
+                if any(p["action"]["type"] == a["type"] and ref in json.dumps(p["action"]["params"]) for p in self.pending()):
+                    steps.append({"kind": "note", "text": f"{st['title']} — already waiting for your approval."})
+                    continue
+                if a["type"] == "send_corrected_invoice":
+                    d = matching.draft_correction(c, a["invoice_id"])
+                    if d:
+                        self.propose(Action("send_corrected_invoice", {"invoice_id": a["invoice_id"], "to": d["to"],
+                                            "subject": d["subject"], "body": d["body"], "new_total": d["new_total"]},
+                                            "owner", rationale=why), steps)
+                elif a["type"] == "send_reminder":
+                    inv = c.invoice(a["invoice_id"])
+                    if inv:
+                        self._remind(inv, steps, provenance="owner")
+                elif a["type"] == "request_supplier_extension":
+                    self.propose(Action("request_supplier_extension", {"bill_id": a["bill_id"], "days": a["days"],
+                                        "surcharge": a["surcharge"]}, "owner", rationale=why), steps)
+                elif a["type"] == "apply_financing":
+                    self.propose(Action("apply_financing", {"product_id": a["product_id"], "amount": a["amount"]},
+                                        "owner", rationale=why), steps)
+        return {"simulation": sim, "plan": plan, "acted": act}
 
     def _do_forecast(self, steps):
         fc = cashflow.forecast(self.ws.company)
@@ -482,6 +537,14 @@ class Agent:
             if matching.open_mismatches(c):
                 steps.append({"kind": "note", "text": "Once the customer approves the corrected invoice, it can be "
                                                       "financed too — and it lands on time, closing most of the gap."})
+            plan = risk.plan_for_confidence(c, target=0.05)
+            if plan["classic"]["p_below_floor"] > 0.10 and plan["reached"]:
+                out["risk_hint"] = plan
+                steps.append({"kind": "note", "text":
+                              f"This plan closes the gap in the single forecast, but in {plan['sims']:,} simulated futures "
+                              f"{plan['classic']['p_below_floor']:.0%} still dip below your floor. For RM "
+                              f"{max(0, plan['total_cost'] - plan['classic']['cost']):,.0f} more, the risk drops to "
+                              f"{plan['p_after']:.0%} — say “make me 95% safe”."})
         return out
 
     def _remind(self, inv, steps, provenance: str):
@@ -596,6 +659,18 @@ class Agent:
             out["financing_plan"] = fin["recommended_plan"]
         if facts.get("health"):
             out["health"] = facts["health"]["metrics"]
+        rk = facts.get("risk")
+        if rk:
+            sim, plan = rk["simulation"], rk["plan"]
+            out["risk"] = {"simulated_futures": sim["sims"], "p_below_floor_now": f"{sim['p_below_floor']:.0%}",
+                           "gap_p50": sim["gap"]["p50"], "gap_p90": sim["gap"]["p90"],
+                           "single_forecast_gap": sim["deterministic"]["funding_gap"],
+                           "usual_plan": plan["classic"], "confidence_plan_steps": [
+                               {"title": x["title"], "cost": x["cost"], "p_below_floor_after": f"{x['p_below_floor']:.1%}"}
+                               for x in plan["ladder"][1:]],
+                           "confidence_plan_cost": plan["total_cost"], "p_below_floor_after": f"{plan['p_after']:.1%}",
+                           "target_safety": f"{1 - plan['target']:.0%}", "proposed_for_approval": rk["acted"]}
+            out["risk"]["usual_plan"] = {**plan["classic"], "p_below_floor": f"{plan['classic']['p_below_floor']:.0%}"}
         return out
 
     def _template_reply(self, intents, facts, steps) -> str:
@@ -608,67 +683,80 @@ class Agent:
         wi = facts.get("whatif")
         if wi:
             b, w = wi["baseline"], wi["whatif"]
-            out.append(f"What if {', '.join(wi['changes'])}: lowest point {_rm(b['trough']['balance'])} "
-                       f"({_d(b['trough']['date'])}) → {_rm(w['trough']['balance'])} ({_d(w['trough']['date'])}).")
-            items = [f"Funding gap {_rm(b['funding_gap'])} → {_rm(w['funding_gap'])}",
-                     f"Balance in 13 weeks {_rm(b['closing'])} → {_rm(w['closing'])}"]
+            out.append(L("whatif_head", changes=", ".join(wi["changes"]), b=_rm(b["trough"]["balance"]),
+                         bd=_d(b["trough"]["date"]), w=_rm(w["trough"]["balance"]), wd=_d(w["trough"]["date"])))
+            items = [L("gap_line", a=_rm(b["funding_gap"]), b=_rm(w["funding_gap"])),
+                     L("close_line", a=_rm(b["closing"]), b=_rm(w["closing"]))]
             if w["first_buffer_breach"] and w["first_buffer_breach"] != b["first_buffer_breach"]:
-                items.append(f"You'd first drop below your floor on {_d(w['first_buffer_breach'])}")
-            section("Impact", items)
-            out.append("Nothing was changed in your books — this is a simulation.")
+                items.append(L("first_floor", d=_d(w["first_buffer_breach"])))
+            section(L("impact"), items)
+            out.append(L("sim_only"))
+
+        rk = facts.get("risk")
+        if rk:
+            sim, plan = rk["simulation"], rk["plan"]
+            out.append(L("risk_head", n=f"{sim['sims']:,}", p=f"{sim['p_below_floor']:.0%}",
+                         det=_rm(sim["deterministic"]["funding_gap"]), p50=_rm(sim["gap"]["p50"]), p90=_rm(sim["gap"]["p90"])))
+            cl = plan["classic"]
+            out.append(L("risk_classic", cost=_rm(cl["cost"]), p=f"{cl['p_below_floor']:.0%}"))
+            section(L("risk_plan_title", target=f"{1 - plan['target']:.0%}", cost=_rm(plan["total_cost"]),
+                      p=f"{plan['p_after']:.1%}"),
+                    [f"{x['title']} — {_rm(x['cost'])} → {x['p_below_floor']:.1%}" for x in plan["ladder"][1:]])
+            if not plan["reached"]:
+                out.append(L("risk_not_reached", p=f"{plan['p_after']:.1%}"))
+            out.append(L("risk_acted") if rk["acted"] else L("risk_offer"))
 
         fc = facts.get("forecast") or (facts.get("autopilot") or {}).get("forecast")
         if fc:
             if fc["funding_gap"] > 0:
-                out.append(f"Cash dips to {_rm(fc['trough']['balance'])} on {_d(fc['trough']['date'])} — "
-                           f"{_rm(fc['funding_gap'])} below your {_rm(fc['cash_buffer'])} floor.")
+                out.append(L("cash_dips", low=_rm(fc["trough"]["balance"]), d=_d(fc["trough"]["date"]),
+                             gap=_rm(fc["funding_gap"]), floor=_rm(fc["cash_buffer"])))
             else:
-                out.append(f"Cash stays above your {_rm(fc['cash_buffer'])} floor for the next 13 weeks "
-                           f"(low point {_rm(fc['trough']['balance'])} on {_d(fc['trough']['date'])}).")
-            section("Why", [a["title"] for a in fc["alerts"]
+                out.append(L("cash_ok", floor=_rm(fc["cash_buffer"]), low=_rm(fc["trough"]["balance"]), d=_d(fc["trough"]["date"])))
+            section(L("why"), [a["title"] for a in fc["alerts"]
                             if a["code"] in ("INVOICE_MISMATCH", "INVOICE_CORRECTION_PENDING", "DOUBTFUL_RECEIVABLE")])
         if facts.get("health"):
-            section("Business health", [i["title"] for i in facts["health"]["insights"]])
+            section(L("health"), [i["title"] for i in facts["health"]["insights"]])
         docs = facts.get("documents")
         if docs:
             items = [f"{r['invoice_id']} vs {r['po_number']}: {d['label']} — {d['detail']}"
                      for r in docs if r["status"] == "MISMATCH" for d in r["discrepancies"]]
             if items:
-                section("Invoices that don't match the purchase order", items)
+                section(L("mismatch"), items)
             else:
-                out.append("Every invoice matches its purchase order and delivery note.")
+                out.append(L("all_match"))
         if facts.get("orders") is not None and "autopilot" not in intents:
             rows = facts["orders"]
-            section("Order book & bookings", [f"{r['id']} {r['customer']} — {r['status']}"
+            section(L("orders"), [f"{r['id']} {r['customer']} — {r['status']}"
                                                + (f", deposit {r['currency']} {r['deposit_due']:,.0f} due" if r['deposit_due'] else "")
                                                + (f" · Tidewise suggests: {r['verdict']} ({r['why']})" if r['status'] == 'pending' else "")
                                                for r in rows])
         fin = facts.get("financing")
         if fin and "autopilot" not in intents:
-            section(f"Cheapest way to cover {_rm(fin['need'])} by {_d(fin['need_by'])}",
+            section(L("fin_title", need=_rm(fin["need"]), d=_d(fin["need_by"])),
                     [f"{p['name']}: {_rm(p['amount'])}, est. cost {_rm(p['cost'])}, funds by {_d(p['funds_by'])}"
                      for p in fin["recommended_plan"]])
         elif "financing" in facts and fin is None:
-            out.append("No funding gap in the next 13 weeks — no need to borrow.")
+            out.append(L("no_gap"))
         if facts.get("inbox") and "autopilot" not in intents:
             q = [m for m in facts["inbox"] if m["trust"] == "quarantined"]
             if q:
-                section("Quarantined", [_why_quarantined(m) for m in q])
+                section(L("quarantined"), [_why_quarantined(m) for m in q])
             else:
-                out.append("Inbox is clean.")
+                out.append(L("inbox_clean"))
         if facts.get("receivables"):
             od = [r for r in facts["receivables"] if r["days_overdue"]]
-            section(f"{len(facts['receivables'])} open invoices, {len(od)} overdue",
+            section(L("receivables", n=len(facts["receivables"]), m=len(od)),
                     [f"{r['id']} {r['customer']} — {r['currency']} {r['amount']:,.0f}, {r['days_overdue']} days late" for r in od])
         if facts.get("bills"):
-            section("Next bills", [f"{b['id']} {b['payee']} — {_rm(b['amount'])} due {_d(b['due'])}" for b in facts["bills"][:5]])
+            section(L("next_bills"), [f"{b['id']} {b['payee']} — {_rm(b['amount'])} due {_d(b['due'])}" for b in facts["bills"][:5]])
 
         actions = [s for s in steps if s["kind"] == "action"]
-        section("Done on my own", [self._label(s) for s in actions if s["decision"]["outcome"] == "auto" and s.get("receipt")])
-        section("Waiting for your approval", [self._label(s) for s in actions if s["decision"]["outcome"] == "needs_approval"])
-        section("Refused", [f"{self._label(s)} — {s['decision']['reasons'][0]}" for s in actions
+        section(L("done"), [self._label(s) for s in actions if s["decision"]["outcome"] == "auto" and s.get("receipt")])
+        section(L("waiting"), [self._label(s) for s in actions if s["decision"]["outcome"] == "needs_approval"])
+        section(L("refused"), [f"{self._label(s)} — {s['decision']['reasons'][0]}" for s in actions
                             if s["decision"]["outcome"] == "blocked"])
-        section("Heads-up", [s["text"] for s in steps if s["kind"] == "note"])
+        section(L("heads_up"), [s["text"] for s in steps if s["kind"] == "note"])
         return "\n\n".join(out)
 
     def _label(self, s: Dict[str, Any]) -> str:

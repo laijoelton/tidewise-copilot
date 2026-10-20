@@ -217,7 +217,7 @@ The three models are trained locally on synthetic data with a fixed seed. Each *
   | Detector | Caught | False alarms |
   |---|---|---|
   | Rules only | 44% | 0% |
-  | Rules + model (live) | 96% | 1.3% |
+  | Rules + model | 93% | 1.3% |
 
 **2. Payment anomaly detector**
 - **Model:** an Isolation Forest per business, trained on that business's own outgoing payments. Features: the robust z-score of log-amount against that payee's history, log-amount, and days since the last payment.
@@ -230,6 +230,53 @@ The three models are trained locally on synthetic data with a fixed seed. Each *
 - **Test:** on an independent simulated portfolio, ROC AUC 0.88 and Brier score 0.135.
 
 **Limits.** The models are trained on synthetic data, so their numbers show the method works, not production accuracy. In deployment they would be retrained on the business's own history and monitored for drift. Because a model can only escalate, a model failure degrades to "more approvals", never "more autonomy".
+
+### 3.13 Probabilistic forecast (`tidewise/risk.py`, `risk.simulate`)
+
+The 13-week forecast gives one future. `simulate()` runs the same books through 2,000 futures (fixed seed, reproducible) and reports:
+- the probability of dipping below the floor and of going negative;
+- the gap at P50 / P90 / P95;
+- fan-chart bands per week;
+- the cumulative breach probability by week;
+- **drivers**: for each uncertain receipt, the breach rate when it lands late vs on time.
+
+What varies in each future (everything contractual, such as bills, payroll and repayments, stays fixed):
+
+| Element | Model |
+|---|---|
+| Open invoice date | deterministic expected date + a residual bootstrapped from **that customer's own payment history** + 2-day jitter |
+| ML tail | with probability = `ml.CollectionRisk` score, the invoice lands 30+ days past due (exponential extra days) |
+| PO-mismatch hold | −35% … +60% of the expected hold (triangular) |
+| USD receipts | one USD/MYR shock per future (σ 3% over 13 weeks) |
+| Doubtful debts | 25% chance of recovery within the horizon |
+| Deposits | 85% arrive within the horizon, up to 14 days late |
+| Run-rate sales / materials | a demand level per future (σ 12%) × weekly noise (σ 15%); materials move half as much |
+
+All assumptions live in `risk.ASSUMPTIONS` and are returned by the API, so they can be shown and challenged.
+
+**Checks:**
+- with the noise switched off, every simulated path equals the deterministic forecast exactly (a test);
+- random draws are keyed per event (common random numbers), so comparing two plans compares like with like.
+
+### 3.14 Confidence planner (`risk.plan_for_confidence`)
+
+"What's the cheapest set of actions that makes me 95% safe?"
+- **Levers** are the real sandbox operations, applied to a **copy** of the books: send a corrected invoice, send a reminder (the ML collection-risk score uses the reminder count), ask the supplier for an extension, draw invoice or PO financing. High-cost or late products (MCA, the working-capital line, the government loan) are excluded, as in `financing.match`.
+- **Search:**
+  1. Free actions are kept if they lower the breach probability or the expected shortfall.
+  2. Every combination of fixed-size levers and every order of the financing products is tried.
+  3. Each financing draw is the smallest amount (RM 5k steps, by bisection) that reaches the target.
+  4. The cheapest combination that reaches the target wins. If none does, the lowest-risk one wins and is labelled as such.
+- **Comparison:** the planner also scores the classic plan (free fixes + the matcher's plan for the single forecast's gap), so the owner sees what that plan leaves behind.
+- **Demo result:** the classic plan costs RM 1,440 and leaves 59% risk. The 95% plan costs RM 2,470 and leaves 4.0% risk.
+- **No authority:** the planner executes nothing. "Make me 95% safe" proposes each step through `agent.propose()`, so policy decides, and money movements still need the owner's approval. Steps already waiting for approval are not queued twice.
+- **Verified:** a test approves the proposed steps, then re-simulates with a *different* seed and checks that the promised risk holds.
+
+### 3.15 Multilingual Copilot (`tidewise/i18n.py`)
+
+- **Detection:** any CJK character means Chinese; two or more distinctive Malay words means Malay; otherwise English. The UI can force a language.
+- **Offline understanding:** Chinese and Malay phrasings are mapped onto the router's English vocabulary (for example 概率 → "chances", "bagaimana jika … bayar 30 hari lewat" → "what if … pays 30 days late"). This mapping is used for routing only. The audit log keeps the owner's original words. Chat-approval refusals work in every language ("批准所有…", "luluskan semua…").
+- **Replies:** headline sentences, section titles and plan steps come from translated templates. With Gemini, `narrate(..., lang=)` writes the whole reply in that language and must keep amounts as "RM 12,345". `grounded()` still rejects any invented figure.
 
 ## 4. LLM boundary
 
@@ -245,8 +292,8 @@ The three models are trained locally on synthetic data with a fixed seed. Each *
 
 | Channel | Endpoints |
 |---|---|
-| Read | `GET /api/overview` (incl. root-cause chain), `/forecast`, `/analysis`, `/matching`, `/orders`, `/financing`, `/inbox`, `/ledger`, `/policy`, `/audit`, `/audit/receipt/{id}`, `/sandbox`, `/approvals` |
-| Conversation | `POST /api/chat` (max 2,000 chars), `POST /api/whatif` (bounded inputs) |
+| Read | `GET /api/overview` (incl. root-cause chain and breach probability), `/forecast`, `/risk` (Monte Carlo), `/risk/plan?target=0.05` (confidence planner), `/analysis`, `/matching`, `/orders`, `/financing`, `/inbox`, `/ledger`, `/policy`, `/audit`, `/audit/receipt/{id}`, `/sandbox`, `/approvals` |
+| Conversation | `POST /api/chat` (max 2,000 chars; optional `lang`: `en` / `zh` / `ms`), `POST /api/whatif` (bounded inputs) |
 | Owner (needs `X-Owner-Token`) | `POST /api/approvals/{id}/approve` (`confirm_amount` for step-up), `/reject`, `POST /api/autonomy` (kill switch), `POST /api/reset` |
 | Customer channel | `POST /api/bookings` (validated; prices from our catalogue; notes screened) |
 | Demo controls | `POST /api/simulate/customer-approves`, `POST /api/simulate/deposit`, `POST /api/redteam` |
@@ -259,7 +306,12 @@ Hardening:
 
 ## 6. Testing
 
-`python run_tests.py` runs **71 tests**:
+`python run_tests.py` runs **87 tests**:
+- **`test_risk_i18n.py`:**
+  - the noise-free simulation equals the deterministic forecast, results are reproducible, and the bands are ordered;
+  - the planner reaches its target, beats the classic plan, never uses high-cost or late money, and never touches the real books;
+  - the promise holds after execution (a re-simulation with a different seed), money steps need approval, and nothing is queued twice;
+  - language detection, offline routing and replies in Chinese and Malay, chat-approval refusal in every language, and the LLM receiving the language with grounding still enforced;
 - **`test_tidewise.py`:**
   - document checks, forecast, analysis and financing;
   - guard, policy and the agent loop end to end;
@@ -277,6 +329,7 @@ Hardening:
 
 ## 7. Limitations and next steps
 
+- **Simulation assumptions** (`risk.ASSUMPTIONS`) are set by hand, not fitted. With real data, fit them from the business's own history and backtest the predicted breach probabilities.
 - **Real banking rails** would use open-banking consent APIs. The sandbox interface (`pay_bill`, `fx_convert`, `submit_financing`) is the seam.
 - **Real lender panel and pricing:** the catalogue is data.
 - **Persistent multi-user state:** each workspace is currently in-memory.

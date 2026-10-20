@@ -95,10 +95,28 @@ def main():
     rep = redteam.run(write_evidence=True)
     (EVIDENCE_DIR / "ml_report.json").write_text(json.dumps(ml.evaluate_all(), indent=2, ensure_ascii=False), encoding="utf-8")
 
+    # Monte Carlo: risk before anything is done, the confidence plan, and the
+    # risk left after the scripted demo (which closes the single forecast's gap).
+    from tidewise import risk
+    from tidewise.data import build_demo_company
+    keep = ("sims", "p_below_floor", "p_negative", "gap", "expected_gap", "first_breach", "deterministic", "drivers")
+    fresh = build_demo_company()
+    before_risk = {k: v for k, v in risk.simulate(fresh).items() if k in keep}
+    plan = risk.plan_for_confidence(fresh, target=0.05)
+    after_risk = {k: v for k, v in risk.simulate(ws.company).items() if k in keep}
+    risk_report = {"assumptions": risk.ASSUMPTIONS, "seed": risk.SEED, "before": before_risk,
+                   "confidence_plan_95": {k: plan[k] for k in ("p_now", "p_after", "reached", "total_cost", "ladder",
+                                                               "classic", "combinations_tried")},
+                   "after_scripted_demo": after_risk}
+    (EVIDENCE_DIR / "risk_report.json").write_text(json.dumps(risk_report, indent=2, ensure_ascii=False, default=str),
+                                                   encoding="utf-8")
+
     print(f"sandbox operations: {len(ws.sandbox.log)}  ->  {ops.relative_to(ROOT)}")
     print(f"audit: {v['records']} records, {v['batches']} batches, chain intact={v['chain_intact']}")
     print(f"funding gap: RM {before['funding_gap']:,.0f} -> RM {after['funding_gap']:,.0f}")
     print(f"red team: {rep['passed']}/{rep['total']} attacks handled as expected")
+    print(f"breach risk: {before_risk['p_below_floor']:.0%} today -> {after_risk['p_below_floor']:.0%} after the demo; "
+          f"95% plan: RM {plan['total_cost']:,.0f} -> {plan['p_after']:.1%}")
 
 
 if __name__ == "__main__":

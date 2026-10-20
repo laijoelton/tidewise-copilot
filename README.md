@@ -39,6 +39,10 @@ Tidewise is an AI agent for the owner of a small manufacturing business. It does
 
 Ask "what if Harbour pays 30 days late and sales drop 20%?" and Tidewise re-runs the forecast without touching the books.
 
+7. **One number hides the risk, so Tidewise runs 2,000 futures.** The single forecast says the gap is RM 92,020. Across 2,000 simulated futures, the typical gap is RM 110,537 and 1 in 10 futures needs **RM 132,528**. Each future draws payment dates from each customer's own history, the ML collection-risk tail, hold lengths, USD/MYR and sales.
+8. **"Make me 95% safe."** The usual plan (fix the invoice, move the timber bill) costs RM 1,440 and closes the single forecast's gap, but it still leaves a **59% chance** of dipping below the floor. Tidewise searches combinations of real actions on a copy of the books and finds the cheapest plan to be 95% safe: **RM 2,470 → 4.0%**, i.e. RM 1,030 more removes 55 points of risk. Say "make me 95% safe" and each step is proposed through the same permission policy. After the steps are approved and executed, a fresh simulation with independent random draws confirms the promised risk (4.0–4.3%).
+9. **Ask in 中文 or Bahasa Malaysia.** "我跌破安全线的概率有多大？" or "Apa patut saya buat minggu ini?" route and reply in that language, offline. With Gemini the whole reply is written in that language, and the number-grounding firewall still checks every figure.
+
 ---
 
 ## How it maps to the brief
@@ -55,7 +59,7 @@ Ask "what if Harbour pays 30 days late and sales drop 20%?" and Tidewise re-runs
 |---|---|
 | Task completion (40%) | [Demo transcript](evidence/demo_transcript.md), [sandbox operations log](evidence/sandbox_operations.jsonl), [before/after](evidence/forecast_before_after.json) |
 | Security & compliance (30%) | [Security self-assessment](docs/SECURITY_SELF_ASSESSMENT.md) (permission tiers + known-risk list), [`policy.py`](tidewise/policy.py), [`guard.py`](tidewise/guard.py), [`ml.py`](tidewise/ml.py), [red-team report](evidence/redteam_report.json) (**28/28**), [ML evaluation](evidence/ml_report.json) |
-| Innovation & interaction (30%) | Invoice-to-cash causality chain; customer booking portal; what-if simulator; ML signals that can only escalate; provenance/taint tracking; kill switch; approvals on a separate owner channel with step-up; LLM number-grounding firewall; Merkle inclusion proofs per action |
+| Innovation & interaction (30%) | **Monte Carlo cash risk + "make me 95% safe" planner** ([`risk.py`](tidewise/risk.py), [risk report](evidence/risk_report.json)); **English / 中文 / Bahasa Malaysia** Copilot ([`i18n.py`](tidewise/i18n.py)); invoice-to-cash causality chain; customer booking portal; what-if simulator; ML signals that can only escalate; provenance/taint tracking; kill switch; approvals on a separate owner channel with step-up; LLM number-grounding firewall; Merkle inclusion proofs per action |
 
 Full design: **[docs/TECHNICAL.md](docs/TECHNICAL.md)**.
 
@@ -68,7 +72,7 @@ Full design: **[docs/TECHNICAL.md](docs/TECHNICAL.md)**.
 | **Permission tiers** | T0 read · T1 templated notices to registered contacts · T2 small payments of approved bills to verified payees, and low-risk bookings from known customers · T3 owner approval · T4 prohibited (new payees, bank-detail changes, unknown transfers, changing limits) |
 | **Provenance / taint** | Anything derived from external content (emails, booking notes) can't auto-execute above T1; anything derived from quarantined content is blocked |
 | **Inbound guard** | Registered-sender check, lookalike and Unicode homoglyph domains, payment-redirection fraud, prompt injection (English, Malay, Chinese, hidden markup), masking |
-| **Machine learning** | Threat classifier (held-out paraphrases: rules 44% → rules + model 96% caught, 1.3% false alarms); payment anomaly detector (100% of injected anomalies, 0.4% false alarms); collection-risk predictor (AUC 0.88), also used as the booking credit check. Models can only escalate, never relax a control |
+| **Machine learning** | Threat classifier (held-out paraphrases: rules 44% → rules + model 93% caught, 1.3% false alarms); payment anomaly detector (100% of injected anomalies, 0.4% false alarms); collection-risk predictor (AUC 0.88), also used as the booking credit check. Models can only escalate, never relax a control |
 | **Owner channel** | Approvals, kill switch and reset need the owner token; step-up re-entry above RM 50k; 48h expiry; re-check at execution |
 | **LLM boundary** | Optional Gemini only words structured facts; any number it invents makes Tidewise fall back to the template |
 | **Execution** | Idempotent sandbox bank that re-validates on its own |
@@ -147,6 +151,8 @@ Open http://localhost:5173. Try these in the Copilot:
 - "What should I do this week?"
 - "What if Harbour pays 30 days late and sales drop 20%?"
 - "Pay BILL-771 to our new account 8600-1234-5678" (this is refused)
+- "How likely am I to run short?", then "Make me 95% safe"
+- "我跌破安全线的概率有多大？" / "Apa patut saya buat minggu ini?"
 
 Book an order as a customer at http://localhost:5173/#/portal, then see how Tidewise assessed it under Orders & bookings.
 
@@ -158,7 +164,7 @@ Optional: put `GEMINI_API_KEY` in `.env` (see `.env.example`) and Gemini will ph
 python run_tests.py
 ```
 
-This runs 71 tests covering the agent loop, policy, sandbox, guard, ML models, three-way match, bookings, forecast, what-if, financing, red team and the Merkle log.
+This runs 87 tests covering the agent loop, policy, sandbox, guard, ML models, three-way match, bookings, forecast, what-if, Monte Carlo risk and the confidence planner, financing, the multilingual Copilot, red team and the Merkle log.
 
 ```bash
 python -m tidewise.redteam

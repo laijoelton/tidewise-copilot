@@ -90,12 +90,17 @@ class LLM:
             return []
         return [i for i in chosen if i in intents]
 
-    def narrate(self, question: str, facts: Dict[str, Any], fallback: str) -> str:
+    def narrate(self, question: str, facts: Dict[str, Any], fallback: str, lang: str = "en") -> str:
+        from .i18n import LANG_NAME
+        language = LANG_NAME.get(lang, "English")
         raw = self._call(
             "You are Tidewise, a finance copilot for a small exporter. Answer the owner in at most 6 short "
             "sentences, using only these facts (amounts in RM unless stated). Never invent numbers, never say "
             "an action happened unless it is listed as executed, and say clearly which actions wait for the "
-            f"owner's approval.\n\nOwner asked: {question!r}\n\nFacts:\n{json.dumps(facts, default=str)[:6000]}",
+            f"owner's approval. Write the whole answer in {language}. Keep every amount exactly in the form "
+            "'RM 12,345' with the same digits (never convert to 万 or other units), keep percentages as given, "
+            "and keep IDs such as INV-2041 and BILL-771 unchanged."
+            f"\n\nOwner asked: {question!r}\n\nFacts:\n{json.dumps(facts, default=str, ensure_ascii=False)[:6000]}",
             json_mode=False)
         if not raw:
             return fallback

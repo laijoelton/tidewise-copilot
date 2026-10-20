@@ -40,7 +40,7 @@ export default function App() {
     today: <Today go={go} />,
     copilot: <Copilot go={go} />,
     approvals: <Approvals />,
-    cash: <Cash />,
+    cash: <Cash go={go} />,
     financing: <Financing />,
     orders: <Orders go={go} />,
     invoices: <Invoices />,

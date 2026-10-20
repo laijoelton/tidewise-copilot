@@ -7,8 +7,30 @@ import { bump, type Page } from '../lib/hooks'
 
 interface Turn { role: 'owner' | 'agent'; text: string; steps?: Json[]; pending?: number; llm?: boolean }
 
+type Lang = 'auto' | 'en' | 'zh' | 'ms'
+const LANGS: [Lang, string][] = [['auto', 'Auto'], ['en', 'EN'], ['zh', '中文'], ['ms', 'BM']]
+
+const SUGGESTIONS_ZH = [
+  '这周我该做什么？',
+  '我跌破安全线的概率有多大？',
+  '让我95%安全',
+  '如果 Harbour 晚付30天会怎样？',
+  '收件箱里有可疑邮件吗？',
+  '我能获得什么融资？',
+]
+const SUGGESTIONS_MS = [
+  'Apa patut saya buat minggu ini?',
+  'Berapa peluang tunai saya jatuh bawah paras minimum?',
+  'Jadikan saya 95% selamat',
+  'Bagaimana jika Harbour bayar 30 hari lewat?',
+  'Ada e-mel mencurigakan dalam peti masuk?',
+  'Pembiayaan apa yang saya boleh dapat?',
+]
+
 const SUGGESTIONS = [
   'What should I do this week?',
+  'How likely am I to run short of cash?',
+  'Make me 95% safe',
   'Will I have enough cash next month?',
   'How healthy is the business?',
   'Check my invoices against purchase orders',
@@ -26,6 +48,7 @@ export default function Copilot({ go }: { go: (p: Page) => void }) {
   const [turns, setTurns] = useState<Turn[]>(history)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
+  const [lang, setLang] = useState<Lang>('auto')
   const end = useRef<HTMLDivElement>(null)
 
   useEffect(() => { history = turns; end.current?.scrollIntoView({ behavior: 'smooth' }) }, [turns])
@@ -36,7 +59,7 @@ export default function Copilot({ go }: { go: (p: Page) => void }) {
     setBusy(true)
     setTurns((t) => [...t, { role: 'owner', text: message }])
     try {
-      const r = await api.chat(message)
+      const r = await api.chat(message, lang === 'auto' ? undefined : lang)
       setTurns((t) => [...t, { role: 'agent', text: r.reply, steps: r.steps, pending: r.pending_approvals.length, llm: r.llm }])
       bump()
     } catch (e) {
@@ -48,14 +71,21 @@ export default function Copilot({ go }: { go: (p: Page) => void }) {
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">
-      <PageHead title="Copilot" sub="Ask in plain language. Tidewise reads your books, proposes actions, and does only what your permission policy allows — everything else waits for you or is refused." />
+      <PageHead title="Copilot" sub="Ask in plain language — English, 中文 or Bahasa Malaysia. Tidewise reads your books, proposes actions, and does only what your permission policy allows — everything else waits for you or is refused."
+        action={
+          <div className="flex items-center gap-1 rounded-lg border border-edge p-0.5 text-[12.5px]" role="group" aria-label="Reply language">
+            {LANGS.map(([l, label]) => (
+              <button key={l} onClick={() => setLang(l)} aria-pressed={lang === l}
+                className={cx('rounded-md px-2.5 py-1', lang === l ? 'bg-brand text-card' : 'text-ink2 hover:bg-sub')}>{label}</button>
+            ))}
+          </div>} />
 
       <div className="flex-1 space-y-5">
         {turns.length === 0 && (
           <div className="panel p-6">
             <div className="eyebrow mb-3">Try</div>
             <div className="flex flex-wrap gap-2">
-              {SUGGESTIONS.map((s) => (
+              {(lang === 'zh' ? SUGGESTIONS_ZH : lang === 'ms' ? SUGGESTIONS_MS : SUGGESTIONS).map((s) => (
                 <button key={s} className="btn" onClick={() => send(s)}>{s}</button>
               ))}
             </div>

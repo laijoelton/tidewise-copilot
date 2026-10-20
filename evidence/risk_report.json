@@ -1,0 +1,205 @@
+{
+  "assumptions": {
+    "delay_jitter_days": 2.0,
+    "default_delay_sd_days": 5.0,
+    "late_tail_extra_days": 12.0,
+    "hold_range": [
+      -0.35,
+      0.6
+    ],
+    "usd_myr_sd": 0.03,
+    "doubtful_recovery_p": 0.25,
+    "deposit_arrives_p": 0.85,
+    "deposit_delay_max_days": 14,
+    "sales_level_sd": 0.12,
+    "sales_week_sd": 0.15,
+    "cost_tracks_sales": 0.5
+  },
+  "seed": 20261012,
+  "before": {
+    "sims": 2000,
+    "p_below_floor": 1.0,
+    "p_negative": 1.0,
+    "gap": {
+      "p50": 110537.0,
+      "p90": 132528.0,
+      "p95": 140032.0
+    },
+    "expected_gap": 109556.0,
+    "first_breach": {
+      "p10": "2026-10-25",
+      "p50": "2026-10-26"
+    },
+    "drivers": [
+      {
+        "source": "ORD-320",
+        "label": "Rumah Indah Retail Sdn Bhd — deposit ORD-320",
+        "p_if_late": 1.0,
+        "p_if_on_time": 1.0,
+        "lift": 0.0
+      },
+      {
+        "source": "INV-2038",
+        "label": "Northwind Home Ltd — INV-2038",
+        "p_if_late": 1.0,
+        "p_if_on_time": 1.0,
+        "lift": 0.0
+      },
+      {
+        "source": "INV-2046",
+        "label": "Rumah Indah Retail Sdn Bhd — INV-2046",
+        "p_if_late": 1.0,
+        "p_if_on_time": 1.0,
+        "lift": 0.0
+      },
+      {
+        "source": "INV-2045",
+        "label": "Kiyomi Living KK — INV-2045",
+        "p_if_late": 1.0,
+        "p_if_on_time": 1.0,
+        "lift": 0.0
+      },
+      {
+        "source": "INV-2041",
+        "label": "Vanderhoek Interiors BV — INV-2041",
+        "p_if_late": 1.0,
+        "p_if_on_time": 1.0,
+        "lift": 0.0
+      }
+    ],
+    "deterministic": {
+      "funding_gap": 92020.0,
+      "trough": {
+        "date": "2026-11-01",
+        "balance": -32020.0
+      },
+      "first_buffer_breach": "2026-10-26"
+    }
+  },
+  "confidence_plan_95": {
+    "p_now": 1.0,
+    "p_after": 0.04,
+    "reached": true,
+    "total_cost": 2470.0,
+    "ladder": [
+      {
+        "step": 0,
+        "title": "Today, if you do nothing",
+        "cost": 0.0,
+        "cum_cost": 0.0,
+        "p_below_floor": 1.0,
+        "expected_gap": 109047.0
+      },
+      {
+        "step": 1,
+        "title": "Send corrected INV-2041 to Vanderhoek Interiors BV (matches their PO)",
+        "kind": "corrected_invoice",
+        "cost": 0.0,
+        "cum_cost": 0.0,
+        "p_below_floor": 1.0,
+        "expected_gap": 104571.0,
+        "action": {
+          "type": "send_corrected_invoice",
+          "invoice_id": "INV-2041"
+        }
+      },
+      {
+        "step": 2,
+        "title": "Ask Hutan Lestari Timber Sdn Bhd to move BILL-771 (RM 96,000) by 30 days, 1.5% surcharge",
+        "kind": "supplier_extension",
+        "cost": 1440.0,
+        "cum_cost": 1440.0,
+        "p_below_floor": 0.586,
+        "expected_gap": 12297.0,
+        "action": {
+          "type": "request_supplier_extension",
+          "bill_id": "BILL-771",
+          "days": 30,
+          "surcharge": 0.015
+        }
+      },
+      {
+        "step": 3,
+        "title": "Draw RM 50,000 of Invoice financing",
+        "kind": "financing",
+        "cost": 1030.0,
+        "cum_cost": 2470.0,
+        "p_below_floor": 0.04,
+        "expected_gap": 1333.0,
+        "action": {
+          "type": "apply_financing",
+          "product_id": "INVFIN",
+          "amount": 50000.0
+        }
+      }
+    ],
+    "classic": {
+      "title": "Cover the single-forecast gap: Send corrected INV-2041 to Vanderhoek Interiors BV (matches their PO); Ask Hutan Lestari Timber Sdn Bhd to move BILL-771 (RM 96,000) by 30 days, 1.5% surcharge",
+      "cost": 1440.0,
+      "p_below_floor": 0.586,
+      "expected_gap": 12297.0,
+      "gap_p90": 32243.0
+    },
+    "combinations_tried": 4
+  },
+  "after_scripted_demo": {
+    "sims": 2000,
+    "p_below_floor": 0.0555,
+    "p_negative": 0.0035,
+    "gap": {
+      "p50": 0.0,
+      "p90": 0.0,
+      "p95": 5101.0
+    },
+    "expected_gap": 1178.0,
+    "first_breach": {
+      "p10": "2026-10-25",
+      "p50": "2026-10-25"
+    },
+    "drivers": [
+      {
+        "source": "INV-2041",
+        "label": "Vanderhoek Interiors BV — INV-2041",
+        "p_if_late": 0.136,
+        "p_if_on_time": 0.0,
+        "lift": 0.136
+      },
+      {
+        "source": "INV-2038",
+        "label": "Northwind Home Ltd — INV-2038",
+        "p_if_late": 0.115,
+        "p_if_on_time": 0.008,
+        "lift": 0.107
+      },
+      {
+        "source": "ORD-323",
+        "label": "Coastal Living Co — deposit ORD-323",
+        "p_if_late": 0.091,
+        "p_if_on_time": 0.024,
+        "lift": 0.067
+      },
+      {
+        "source": "INV-2044",
+        "label": "Harbour & Hearth Pty Ltd — INV-2044",
+        "p_if_late": 0.065,
+        "p_if_on_time": 0.049,
+        "lift": 0.015
+      },
+      {
+        "source": "INV-2046",
+        "label": "Rumah Indah Retail Sdn Bhd — INV-2046",
+        "p_if_late": 0.058,
+        "p_if_on_time": 0.054,
+        "lift": 0.004
+      }
+    ],
+    "deterministic": {
+      "funding_gap": 0.0,
+      "trough": {
+        "date": "2026-10-12",
+        "balance": 113754.0
+      },
+      "first_buffer_breach": null
+    }
+  }
+}

@@ -1,16 +1,21 @@
+import { ConfidencePlanner, RiskPanel } from '../components/RiskPanel'
 import { WhatIf } from '../components/WhatIf'
 import { Badge, Loading, PageHead, Panel } from '../components/ui'
 import { api, rm, shortDate, type Json } from '../lib/api'
-import { useLoad } from '../lib/hooks'
+import { type Page, useLoad } from '../lib/hooks'
 
-export default function Cash() {
+export default function Cash({ go }: { go?: (p: Page) => void }) {
   const { data: fc, error } = useLoad(api.forecast)
   if (!fc) return <Loading error={error} />
   const known = fc.events.filter((e: Json) => !e.projected)
 
   return (
     <>
-      <PageHead title="Cash flow" sub="Receipts are dated by how each customer actually pays (their 6-month average delay), not the invoice due date. Beyond what's booked, the forecast uses run-rates with a 15% sales haircut." />
+      <PageHead title="Cash flow" sub="Receipts are dated by how each customer actually pays (their 6-month average delay), not the invoice due date. Beyond what's booked, the forecast uses run-rates with a 15% sales haircut. Because one number hides the risk, Tidewise also runs 2,000 simulated futures and finds the cheapest way to be 95% safe." />
+      <div className="mb-4 grid gap-4">
+        <RiskPanel weekly={fc.weekly} />
+        <ConfidencePlanner go={go} />
+      </div>
       <WhatIf weekly={fc.weekly} buffer={fc.cash_buffer} customers={Object.keys(fc.customer_delays).sort()} />
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.4fr_1fr]">

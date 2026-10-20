@@ -36,7 +36,9 @@ export const api = {
   receipt: (id: number) => call(`/api/audit/receipt/${id}`),
   sandbox: () => call('/api/sandbox'),
   approvals: () => call('/api/approvals'),
-  chat: (message: string) => call('/api/chat', { method: 'POST', body: JSON.stringify({ message }) }),
+  chat: (message: string, lang?: string) => call('/api/chat', { method: 'POST', body: JSON.stringify({ message, lang: lang || null }) }),
+  risk: () => call('/api/risk'),
+  riskPlan: (target: number) => call(`/api/risk/plan?target=${target}`),
   approve: (id: string, confirm_amount?: number) =>
     call(`/api/approvals/${id}/approve`, { method: 'POST', owner: true, body: JSON.stringify({ confirm_amount }) }),
   reject: (id: string) => call(`/api/approvals/${id}/reject`, { method: 'POST', owner: true, body: '{}' }),
