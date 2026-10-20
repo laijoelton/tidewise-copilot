@@ -6,6 +6,7 @@ import { useLoad } from '../lib/hooks'
 export default function Activity() {
   const { data: sb, error } = useLoad(api.sandbox)
   const { data: audit } = useLoad(api.audit)
+  const { data: anchor } = useLoad(api.anchor)
   const [receipt, setReceipt] = useState<Json | null>(null)
   if (!sb || !audit) return <Loading error={error} />
   const v = audit.verification
@@ -66,6 +67,15 @@ export default function Activity() {
             </table>
           </div>
           <div>
+            {anchor && anchor.fingerprint && (
+              <div className="mb-4 rounded-lg border border-edge bg-canvas/50 p-3 text-[12px]">
+                <div className="eyebrow mb-1">Kept outside the app</div>
+                <div className={anchor.anchors_match ? 'text-ok' : 'text-bad'}>
+                  {anchor.anchors_match ? '✓' : '✕'} {anchor.anchored} of {anchor.batches} batch roots anchored{anchor.anchors_match ? ', all match' : ': mismatch, log was rewritten'}
+                </div>
+                <div className="mt-1 text-ink3">Latest fingerprint <span className="mono text-ink2">{anchor.fingerprint}</span>. Note it down: a rewritten log can't reproduce it.</div>
+              </div>
+            )}
             <div className="eyebrow mb-2">Inclusion proof (click a record)</div>
             {receipt ? (
               <div className="mono rounded-lg border border-edge bg-[#fbf8f0] p-3 text-[11px] text-ink2">

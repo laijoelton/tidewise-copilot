@@ -73,13 +73,24 @@ class Limits:
     approval_ttl_hours: int = 48
 
 
+PROVENANCES = ("owner", "books", "external")
+
+
 @dataclass
 class Action:
+    """provenance is mandatory (no default): every tool must say where its
+    parameters came from, or the action cannot be built at all (risk R3)."""
     type: str
     params: Dict[str, Any]
-    provenance: str = "books"            # owner | books | external
+    provenance: str                      # owner | books | external
     source_ref: Optional[str] = None     # e.g. message id the params came from
     rationale: str = ""
+
+    def __post_init__(self) -> None:
+        if self.provenance not in PROVENANCES:
+            raise ValueError(f"action {self.type!r}: provenance must be one of {PROVENANCES}, got {self.provenance!r}")
+        if self.provenance == "external" and not self.source_ref:
+            raise ValueError(f"action {self.type!r}: external provenance needs the source_ref it came from")
 
 
 @dataclass
@@ -112,6 +123,11 @@ class Policy:
         self.auto_actions_this_turn = 0
         self.paused = False                          # owner's kill switch: no autonomous actions at all
         self._anomaly = None                         # ML payment-anomaly model, built on first use
+
+    def __getstate__(self):                          # saved state (tidewise/store.py) skips the model;
+        state = dict(self.__dict__)                  # it is rebuilt deterministically on first use
+        state["_anomaly"] = None
+        return state
 
     @property
     def auto_paid_today(self) -> float:

@@ -108,7 +108,7 @@ Implemented in `tidewise/policy.py`. Every action the agent proposes is evaluate
 | RT-27 | “Correction” that raises the invoice above the PO | blocked ✓ |
 | RT-28 | Booking under a known customer’s name from a look-alike address | blocked ✓ |
 
-The unit suite (121 tests) also asserts each tier's behaviour directly (`tests/test_tidewise.py`, `tests/test_features.py`).
+The unit suite (135 tests) also asserts each tier's behaviour directly (`tests/test_tidewise.py`, `tests/test_features.py`).
 
 ### Live attack lab
 
@@ -135,17 +135,17 @@ Rating: likelihood (L) × impact (I), on a High/Medium/Low scale, assessed for a
 
 | # | Risk | L | I | Current mitigation | Residual risk / next step |
 |---|---|---|---|---|---|
-| R1 | **Single static owner token.** Anyone holding it can approve. | M | H | Separate channel, constant-time compare, step-up for large amounts, expiry, audit | Replace with per-user auth (passkeys/MFA), device binding and dual control for large amounts |
+| R1 | **Single static owner token.** Anyone holding it can approve. | M | H | Separate channel, constant-time compare, step-up for large amounts, expiry, audit. **Now:** 5 wrong tokens lock the address out for 10 minutes, and every failure is audited | Replace with per-user auth (passkeys/MFA), device binding and dual control for large amounts |
 | R2 | **Content screening can be evaded** (novel phrasing, images, unseen languages). | M | M | Rules plus ML classifier (held-out paraphrase recall 44% → 93%). Screening is still *not* the main control: external provenance can't auto-execute above T1, bank-detail changes are always T4, and the LLM has no authority | Retrain on real labelled mail; add image/OCR screening; keep treating all external content as untrusted |
-| R3 | **Provenance is set by agent code paths.** A new tool that mislabels provenance would weaken the taint rule. | L | H | All current paths are labelled and tested | Make provenance mandatory and typed per tool; add a lint/test that every tool declares it |
+| R3 | **Provenance is set by agent code paths.** A new tool that mislabels provenance would weaken the taint rule. | L | H | **Fixed in part:** provenance is mandatory (no default) and validated; `external` must name its source, so a tool that forgets cannot build an action (`test_hardening.py`) | A tool can still pick the wrong label on purpose; type provenance per data source end to end |
 | R4 | **Sender verification uses domain strings only** (no SPF/DKIM/DMARC in the demo). | M | M | Registered-domain allow-list, lookalike and homoglyph detection | Verify authentication headers from the real mail provider |
-| R5 | **In-memory state.** Approvals, limits counters and the reminder log reset on restart. | M | M | Audit batches persist to disk; the demo is single-process | Persistent store with transactional updates; approvals survive restarts |
-| R6 | **Audit roots are not anchored externally.** An operator with full disk access could rewrite the whole log consistently. | L | H | Chain plus inclusion proofs detect partial tampering (RT-16) | Publish batch roots to the owner (email or receipt) or an external timestamping service |
+| R5 | **State lost on restart.** Approvals, limits counters and the reminder log reset. | M | M | **Fixed for one business:** the workspace is saved after every change and restored at start-up; atomic writes; HMAC-checked before loading; out-of-date snapshots start clean | Database with transactional updates and per-tenant workspaces |
+| R6 | **Audit roots are not anchored externally.** An operator with full disk access could rewrite the whole log consistently. | L | H | Chain plus inclusion proofs detect partial tampering (RT-16). **Now:** every root is also written to an anchor file outside the project folder, and the owner sees the latest fingerprint; a consistent rewrite is caught (`test_hardening.py`) | Someone with access to both files could still rewrite both: publish roots to an external timestamping service |
 | R7 | **Narration can still mislead without numbers** (tone, emphasis). | L | M | Facts-only prompt, number grounding, structured action list shown beside every reply | Add claim-level checks; keep the UI's structured trace as the source of truth |
 | R8 | **Model availability and cost.** | M | L | Fully functional offline with deterministic routing and templates | — |
 | R9 | **Forecast and financing assumptions** (21/14-day invoice holds, run-rate haircut, illustrative catalogue) may not match reality. | M | M | Assumptions are named constants, shown as "basis" on every forecast line, and the owner can stress them with what-if | Calibrate against real bank/lender data; real lender panel |
 | R10 | **Rate limiting is per-IP and in-memory.** | M | L | 60 req/s per IP | Gateway-level rate limiting and abuse detection |
-| R11 | **Dependencies are not version-pinned** in `requirements.txt`. | M | M | Small dependency surface | Pin versions and hashes; run dependency scanning in CI |
+| R11 | **Dependencies were not version-pinned.** | M | M | **Fixed:** exact versions pinned in `requirements.txt`; unused packages removed | Add hashes; run dependency scanning in CI |
 | R12 | **No TLS in local development.** | L | M | Local-only, CORS restricted to the local UI | TLS everywhere in deployment |
 | R13 | **Approval fatigue.** The owner rubber-stamps. | M | M | Few T3 items per turn; each shows every check (including the ML reason); step-up re-entry for large amounts | Daily digest, risk-ranked approvals, cooling-off for unusual payees |
 | R14 | **ML models are trained on synthetic data** and could drift, be poisoned, or be miscalibrated on real data. | M | M | Models can only escalate (quarantine or approval), never relax a control; fixed-seed, reproducible training; held-out evaluation published | Retrain on the business's own data with human-labelled outcomes; drift monitoring; signed model artefacts |

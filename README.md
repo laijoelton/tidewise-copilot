@@ -172,7 +172,7 @@ Optional: put `GEMINI_API_KEY` in `.env` (see `.env.example`) and Gemini will ph
 python run_tests.py
 ```
 
-This runs 121 tests covering the ten-gate pipeline and live gateway, the impact panel, the attack lab, live Bank Negara and CFETS data (offline fixtures), the agent loop, policy, sandbox, guard, ML models, three-way match, bookings, forecast, what-if, Monte Carlo risk and the confidence planner, financing, the multilingual Copilot, red team and the Merkle log.
+This runs 135 tests covering saved state and the anchored audit log, the ten-gate pipeline and live gateway, the impact panel, the attack lab, live Bank Negara and CFETS data (offline fixtures), the agent loop, policy, sandbox, guard, ML models, three-way match, bookings, forecast, what-if, Monte Carlo risk and the confidence planner, financing, the multilingual Copilot, red team and the Merkle log.
 
 ```bash
 python -m tidewise.redteam
@@ -198,12 +198,13 @@ This regenerates `evidence/` (sandbox operations log, audit trail, transcript, r
 
 ```
 tidewise/          the agent: data, matching, bookings, forecast, analysis, financing, guard, ml, policy,
-                   sandbox, audit, agent, llm, redteam
+                   sandbox, audit, store, agent, llm, redteam, risk, market, i18n, arena, impact, pipeline, gateway
 tidewise/engine/   Merkle-chained log, rate limiter
 api/main.py        FastAPI: conversation channel, owner channel, customer booking channel
 web/               React 19 + Vite + Tailwind UI (Today, Copilot, Approvals, Cash flow & what-if, Orders & bookings,
-                   Invoice check, Financing, Inbox guard, Business health, Security, Activity & audit, customer portal)
-tests/             unittest suite (test_tidewise, test_features, test_ml, test_engine)
+                   Invoice check, Financing, Inbox guard, Business health, Gateway, Security, Activity & audit,
+                   plus the customer portal)
+tests/             unittest suite (135 tests)
 docs/              technical documentation, security self-assessment
 evidence/          execution evidence (sandbox ops log, audit trail, transcript, red-team and ML reports)
 scripts/           evidence generator

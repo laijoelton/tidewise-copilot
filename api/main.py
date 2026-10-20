@@ -1,4 +1,4 @@
-"""Tidewise API — FastAPI over one in-memory workspace.
+"""Tidewise API — FastAPI over one workspace, saved after every change (tidewise/store.py).
 
 Run from the repo root:  uvicorn api.main:app --reload --port 8000
 
@@ -14,6 +14,8 @@ import hmac
 import os
 import secrets
 import sys
+import threading
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -26,7 +28,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
 from tidewise.engine.ratelimit import RateLimiter  # noqa: E402
-from tidewise import analysis, arena, bookings, cashflow, financing, guard, impact, market, matching, redteam, risk  # noqa: E402
+from tidewise import analysis, arena, bookings, cashflow, financing, guard, impact, market, matching, redteam, risk, store  # noqa: E402
 from datetime import date as _date  # noqa: E402
 from tidewise.agent import Workspace  # noqa: E402
 from tidewise.policy import BASE_TIER, TIER_LABEL  # noqa: E402
@@ -40,7 +42,24 @@ app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=
                    allow_headers=["Content-Type", "X-Owner-Token"])
 
 ws = Workspace(persist=True)
+STATE_FILE = Path(os.environ.get("TIDEWISE_STATE_FILE") or ROOT / "evidence" / "live" / "workspace_state.bin")
+STATE = store.load(ws, STATE_FILE) if store.enabled() else {"restored": False, "reason": "saving turned off"}
 _limiter = RateLimiter(window_s=1.0)
+
+# Owner-token brute force (risk R1): 5 wrong tokens from one address in 10 minutes
+# locks that address out of the owner channel for 10 minutes. Every failure is audited.
+MAX_BAD_TOKENS, BAD_TOKEN_WINDOW_S, LOCKOUT_S = 5, 600, 600
+_bad_tokens: dict = {}
+_bad_lock = threading.Lock()
+
+
+@app.middleware("http")
+async def save_state(request: Request, call_next):
+    """Save the workspace after every successful change (risk R5)."""
+    response = await call_next(request)
+    if request.method == "POST" and response.status_code < 400 and store.enabled():
+        store.save(ws, STATE_FILE)
+    return response
 
 
 @app.middleware("http")
@@ -51,15 +70,30 @@ async def rate_limit(request: Request, call_next):
     return await call_next(request)
 
 
-def require_owner(x_owner_token: Optional[str] = Header(default=None)):
+def require_owner(request: Request, x_owner_token: Optional[str] = Header(default=None)):
+    ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    with _bad_lock:
+        recent = [t for t in _bad_tokens.get(ip, []) if now - t < BAD_TOKEN_WINDOW_S]
+        _bad_tokens[ip] = recent
+        if len(recent) >= MAX_BAD_TOKENS and now - recent[-1] < LOCKOUT_S:
+            raise HTTPException(status_code=429, detail="too many wrong owner tokens: owner channel locked for 10 minutes")
     if not x_owner_token or not hmac.compare_digest(x_owner_token, OWNER_TOKEN):
+        with _bad_lock:
+            _bad_tokens.setdefault(ip, []).append(now)
+            n = len(_bad_tokens[ip])
+        ws.audit.record("owner_token_rejected", "unknown", {"from": ip, "attempt": n, "locked": n >= MAX_BAD_TOKENS})
+        ws.audit.seal()
         raise HTTPException(status_code=401, detail="owner token required for approvals")
+    with _bad_lock:
+        _bad_tokens.pop(ip, None)
     return "owner"
 
 
 @app.on_event("startup")
 def _announce():
-    print(f"\n  Tidewise owner token (approvals channel): {OWNER_TOKEN}\n")
+    print(f"\n  Tidewise owner token (approvals channel): {OWNER_TOKEN}")
+    print(f"  Saved state: {'restored' if STATE.get('restored') else STATE.get('reason')}\n")
 
     def warm():                       # train the ML models off the request path
         from tidewise import ml
@@ -332,6 +366,17 @@ def policy():
 @app.get("/api/audit")
 def audit():
     return {"verification": ws.audit.verify(), "batches": ws.audit.batches(), "records": ws.audit.records[-300:]}
+
+
+@app.get("/api/audit/anchor")
+def audit_anchor():
+    """Latest audit root fingerprint, to keep outside the app (risk R6)."""
+    return ws.audit.anchor()
+
+
+@app.get("/api/state")
+def state_info():
+    return {"saving": store.enabled(), "file": STATE_FILE.name, "at_start": STATE}
 
 
 @app.get("/api/audit/receipt/{record_id}")

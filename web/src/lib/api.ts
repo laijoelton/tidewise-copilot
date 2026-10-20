@@ -37,6 +37,7 @@ export const api = {
   gatewayRun: (body: Json) => call('/api/gateway/run', { method: 'POST', body: JSON.stringify(body) }),
   audit: () => call('/api/audit'),
   receipt: (id: number) => call(`/api/audit/receipt/${id}`),
+  anchor: () => call('/api/audit/anchor'),
   sandbox: () => call('/api/sandbox'),
   approvals: () => call('/api/approvals'),
   chat: (message: string, lang?: string) => call('/api/chat', { method: 'POST', body: JSON.stringify({ message, lang: lang || null }) }),

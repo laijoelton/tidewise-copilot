@@ -37,17 +37,17 @@ class TestPaymentAnomaly(unittest.TestCase):
         self.assertLessEqual(ev["false_alarm_rate"], 0.05)
 
     def test_normal_bill_stays_auto(self):
-        self.assertEqual(Policy(build_demo_company()).evaluate(Action("pay_bill", {"bill_id": "BILL-774"})).outcome, "auto")
+        self.assertEqual(Policy(build_demo_company()).evaluate(Action("pay_bill", {"bill_id": "BILL-774"}, "books")).outcome, "auto")
 
     def test_padded_bill_escalated(self):
         c = build_demo_company()
         c.bills.append(Bill("BILL-799", "PAY-KEMAS", "MYR", 9_400, c.as_of, "rush cartons"))
-        d = Policy(c).evaluate(Action("pay_bill", {"bill_id": "BILL-799"}))
+        d = Policy(c).evaluate(Action("pay_bill", {"bill_id": "BILL-799"}, "books"))
         self.assertEqual(d.outcome, "needs_approval")
         self.assertFalse(next(x for x in d.checks if x.name == "payment pattern (ML)").passed)
 
     def test_no_history_payee_escalated(self):
-        d = Policy(build_demo_company()).evaluate(Action("pay_bill", {"bill_id": "BILL-772"}))
+        d = Policy(build_demo_company()).evaluate(Action("pay_bill", {"bill_id": "BILL-772"}, "books"))
         self.assertEqual(d.outcome, "needs_approval")
 
 

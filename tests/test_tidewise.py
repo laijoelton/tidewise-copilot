@@ -189,25 +189,25 @@ class TestPolicy(unittest.TestCase):
         self.p = Policy(self.c)
 
     def test_small_due_bill_auto(self):
-        self.assertEqual(self.p.evaluate(Action("pay_bill", {"bill_id": "BILL-774"})).outcome, "auto")
+        self.assertEqual(self.p.evaluate(Action("pay_bill", {"bill_id": "BILL-774"}, "books")).outcome, "auto")
 
     def test_large_bill_needs_approval_with_step_up(self):
-        d = self.p.evaluate(Action("pay_bill", {"bill_id": "BILL-771"}))
+        d = self.p.evaluate(Action("pay_bill", {"bill_id": "BILL-771"}, "books"))
         self.assertEqual(d.outcome, "needs_approval")
         self.assertTrue(d.step_up)
 
     def test_early_payment_needs_approval(self):
-        self.assertEqual(self.p.evaluate(Action("pay_bill", {"bill_id": "BILL-775"})).outcome, "needs_approval")
+        self.assertEqual(self.p.evaluate(Action("pay_bill", {"bill_id": "BILL-775"}, "books")).outcome, "needs_approval")
 
     def test_unknown_action_blocked(self):
-        self.assertEqual(self.p.evaluate(Action("delete_ledger", {})).outcome, "blocked")
+        self.assertEqual(self.p.evaluate(Action("delete_ledger", {}, "books")).outcome, "blocked")
 
     def test_financing_always_needs_owner(self):
-        d = self.p.evaluate(Action("apply_financing", {"product_id": "INVFIN", "amount": 1000}))
+        d = self.p.evaluate(Action("apply_financing", {"product_id": "INVFIN", "amount": 1000}, "books"))
         self.assertEqual(d.outcome, "needs_approval")
 
     def test_reminder_cooldown(self):
-        a = Action("send_reminder", {"invoice_id": "INV-2038", "to": "accounts@northwindhome.example"})
+        a = Action("send_reminder", {"invoice_id": "INV-2038", "to": "accounts@northwindhome.example"}, "books")
         self.assertEqual(self.p.evaluate(a).outcome, "auto")
         self.p.reminder_log["INV-2038"] = self.c.as_of
         self.assertEqual(self.p.evaluate(a).outcome, "blocked")
