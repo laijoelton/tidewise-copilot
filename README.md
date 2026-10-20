@@ -3,6 +3,8 @@
 **2026 Shenzhen FinTechathon · International Track · Topic E: SME Finance Copilot**
 Theme: *AI as a Financial Participant*
 
+**Repository:** https://github.com/laijoelton/tidewise-copilot
+
 Tidewise is an AI agent for the owner of a small manufacturing business. It does six things:
 - reads the books and checks every invoice against the customer's purchase order;
 - takes customer bookings through a portal;
@@ -165,6 +167,45 @@ Open http://localhost:5173. Try these in the Copilot:
 Book an order as a customer at http://localhost:5173/#/portal, then see how Tidewise assessed it under Orders & bookings.
 
 Optional: put `GEMINI_API_KEY` in `.env` (see `.env.example`) and Gemini will phrase the replies. Without a key, everything runs offline on the deterministic router and templates. The model never decides or executes anything.
+
+## Deployment
+
+Tidewise runs as two processes: the FastAPI backend and the built web UI, which forwards `/api` to the backend. One machine is enough.
+
+**1. Backend**
+
+```bash
+pip install -r requirements.txt          # exact versions are pinned
+export TIDEWISE_OWNER_TOKEN="<a long random secret>"
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+**2. Web UI (production build)**
+
+```bash
+npm --prefix web ci
+npm --prefix web run build
+npm --prefix web run preview -- --host 0.0.0.0 --port 4173
+```
+
+Open http://<server>:4173. The preview server forwards `/api` to `127.0.0.1:8000` (`web/vite.config.ts`), so the backend never needs to be exposed. For a public deployment, put both behind a reverse proxy with TLS (risk R12).
+
+**Configuration** (environment variables or `.env`)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `TIDEWISE_OWNER_TOKEN` | random, printed at start-up | Owner channel secret (approvals, kill switch, reset) |
+| `TIDEWISE_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Allowed browser origins (CORS), if the UI calls the API directly |
+| `GEMINI_API_KEY` | none | Optional reply wording; everything works offline without it |
+| `TIDEWISE_LIVE_DATA` | `auto` | `off` uses the saved 20 Oct 2026 Bank Negara and CFETS snapshot only |
+| `TIDEWISE_SAVE_STATE` | `1` | `0` turns off saved state (§3.19 in `docs/TECHNICAL.md`) |
+| `TIDEWISE_STATE_KEY` | generated in `~/.tidewise/state.key` | HMAC key for the saved-state file |
+| `TIDEWISE_STATE_FILE` | `evidence/live/workspace_state.bin` | Where the workspace is saved |
+| `TIDEWISE_ANCHOR_FILE` | `~/.tidewise/audit_anchors.jsonl` | Audit roots kept outside the project folder |
+
+The backend must run as **one process** (no `--workers`): approvals and limits live in one workspace. Run it under a supervisor (systemd, a container restart policy); saved state brings approvals back after a restart.
+
+**Windows notes:** if `pip` or `python` isn't found, use `py -m pip` and `py -m uvicorn ...`. If PowerShell blocks `npm`, use `npm.cmd`. Set variables with `$env:TIDEWISE_OWNER_TOKEN="..."`.
 
 ### Tests and evidence
 
