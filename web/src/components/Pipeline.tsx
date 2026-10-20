@@ -65,7 +65,7 @@ function Lane({ title, gates, stats, open, setOpen }: { title: string; gates: Js
                 className={cx('flex h-full w-full flex-col rounded-xl border bg-card p-3 text-left transition-colors hover:border-brand/50',
                   open === g.id ? 'border-brand ring-2 ring-brand/15' : 'border-edge')}>
                 <div className="flex items-center gap-2">
-                  <span className="num inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#173f30] text-[11px] font-bold text-[#f5f1e8]">{g.id}</span>
+                  <span className="num inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#e5162f] text-[11px] font-bold text-[#ffffff]">{g.id}</span>
                   <span className="text-[13.5px] font-semibold leading-tight">{g.name}</span>
                 </div>
                 <div className="mt-2 line-clamp-3 text-[11.5px] leading-snug text-ink3">{g.stops}</div>

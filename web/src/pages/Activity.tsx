@@ -78,7 +78,7 @@ export default function Activity() {
             )}
             <div className="eyebrow mb-2">Inclusion proof (click a record)</div>
             {receipt ? (
-              <div className="mono rounded-lg border border-edge bg-[#fbf8f0] p-3 text-[11px] text-ink2">
+              <div className="mono rounded-lg border border-edge bg-[#fafafb] p-3 text-[11px] text-ink2">
                 <div className={receipt.verified ? 'text-ok' : 'text-bad'}>{receipt.verified ? '✓ proof verifies against root' : '✕ proof failed'}</div>
                 <div className="mt-2 break-all">leaf {receipt.leaf_hash}</div>
                 {receipt.proof.map(([side, h]: [string, string], i: number) => <div key={i} className="break-all text-ink3">{side} {h}</div>)}

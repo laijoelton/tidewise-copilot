@@ -104,7 +104,7 @@ function Slider({ label, value, min, max, step, fmt, onChange }: { label: string
   return (
     <label className="block">
       <div className="mb-1 flex justify-between text-[12.5px]"><span className="font-medium text-ink2">{label}</span><span className="num text-ink">{fmt(value)}</span></div>
-      <input type="range" className="w-full accent-[#1f5a43]" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      <input type="range" className="w-full accent-[#e5162f]" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
     </label>
   )
 }

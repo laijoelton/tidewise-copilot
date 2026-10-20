@@ -7,7 +7,7 @@ export function Panel({ title, action, children, className }: { title?: ReactNod
   return (
     <section className={cx('panel p-5', className)}>
       {(title || action) && (
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="panel-heading mb-4 flex flex-wrap items-center justify-between gap-3">
           {title && <h2 className="text-[18px]">{title}</h2>}
           {action}
         </div>
@@ -31,9 +31,9 @@ export function PageHead({ title, sub, action }: { title: string; sub?: ReactNod
 
 export function Stat({ label, value, hint, tone }: { label: string; value: ReactNode; hint?: ReactNode; tone?: 'bad' | 'warn' | 'ok' }) {
   return (
-    <div className="panel p-4">
+    <div className="panel stat p-4">
       <div className="eyebrow">{label}</div>
-      <div className={cx('num mt-2 text-[26px] font-semibold tracking-tight', tone === 'bad' && 'text-bad', tone === 'warn' && 'text-warn', tone === 'ok' && 'text-ok')}>{value}</div>
+      <div className={cx('num mt-2 text-[28px] font-bold tracking-tight', tone === 'bad' && 'text-bad', tone === 'warn' && 'text-warn', tone === 'ok' && 'text-ok')}>{value}</div>
       {hint && <div className="mt-1 text-[12.5px] text-ink3">{hint}</div>}
     </div>
   )

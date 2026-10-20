@@ -20,7 +20,7 @@ export default function Inbox() {
               {m.display_name} &lt;{m.sender}&gt;{m.counterparty && <> · registered as <span className="text-ink2">{m.counterparty}</span></>}
               {m.ml?.label && <> · ML: <span className={m.ml.threat >= 0.6 ? 'font-semibold text-bad' : 'text-ink2'}>{m.ml.label.replace('_', ' ')} {Math.round(m.ml.threat * 100)}% threat</span></>}
             </div>
-            <div className="mt-3 whitespace-pre-line rounded-lg border border-edge bg-[#fbf8f0] p-3 text-[13px] text-ink2">{m.masked_body}</div>
+            <div className="mt-3 whitespace-pre-line rounded-lg border border-edge bg-[#fafafb] p-3 text-[13px] text-ink2">{m.masked_body}</div>
             {m.findings.length > 0 && (
               <div className="mt-3 flex flex-col gap-1">
                 {m.findings.map((f: Json, i: number) => (

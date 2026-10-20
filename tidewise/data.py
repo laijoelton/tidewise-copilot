@@ -1,4 +1,4 @@
-"""Synthetic demo business: Seri Rotan Furniture Sdn Bhd, a 9-year-old rattan
+"""Synthetic demo business: Mamak Duos Sdn Bhd, a 9-year-old rattan
 and teak furniture maker in Muar, Malaysia, selling to retailers at home and
 overseas.
 
@@ -176,7 +176,7 @@ def build_demo_company(as_of: date = DEMO_AS_OF) -> Company:
     return Company(
         as_of=as_of,
         profile=Profile(
-            legal_name="Seri Rotan Furniture Sdn Bhd",
+            legal_name="Mamak Duos Sdn Bhd",
             registration="201701022311 (fictional)",
             industry="Furniture manufacturing",
             country="MY",

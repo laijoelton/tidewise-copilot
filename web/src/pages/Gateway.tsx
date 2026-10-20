@@ -150,7 +150,7 @@ export default function Gateway() {
                   const st = i < shown ? g.status : i === shown ? 'active' : 'idle'
                   return (
                     <li key={g.id} className={cx('flex items-center gap-3 rounded-lg border px-3 py-2 transition-all duration-300', ROW[st])}>
-                      <span className="num w-8 shrink-0 rounded bg-[#173f30] py-0.5 text-center text-[10.5px] font-bold text-[#f5f1e8]">G{g.id}</span>
+                      <span className="num w-8 shrink-0 rounded bg-[#e5162f] py-0.5 text-center text-[10.5px] font-bold text-[#ffffff]">G{g.id}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-[13px] font-semibold">{NAMES[i]}</span>
                         <span className="block truncate text-[11.5px] text-ink3">{i < shown ? g.detail : HINT[i]}</span>
@@ -206,7 +206,7 @@ export default function Gateway() {
 function Item({ run }: { run: Json }) {
   const m = run.message, a = run.action
   return (
-    <div className="mono overflow-x-auto whitespace-pre-wrap rounded-lg border border-edge bg-[#fbf8f0] px-3 py-2 text-[11.5px] leading-relaxed text-ink2">
+    <div className="mono overflow-x-auto whitespace-pre-wrap rounded-lg border border-edge bg-[#fafafb] px-3 py-2 text-[11.5px] leading-relaxed text-ink2">
       {m ? `from: ${m.display_name ? m.display_name + ' ' : ''}<${m.sender}>\nsubject: ${m.subject}\n` : 'from: owner / books (no outside content)\n'}
       {a ? `action: ${a.type}  ${Object.entries(a.params).filter(([k]) => k !== 'body').map(([k, v]) => `${k}=${v}`).join(' ')}  · asked by ${a.provenance === 'external' ? 'outside content' : a.provenance}` : 'action: none requested — screening only'}
     </div>

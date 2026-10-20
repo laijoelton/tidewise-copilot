@@ -37,7 +37,7 @@ export default function Portal({ go }: { go: (p: Page) => void }) {
   const ready = form.customer && form.email && form.po && form.delivery && total > 0
 
   return (
-    <div className="-mx-4 -my-9 min-h-screen bg-[#FBF7EF] px-4 py-10 sm:-mx-10 sm:px-10">
+    <div className="-mx-4 -my-9 min-h-screen bg-[#fafafb] px-4 py-10 sm:-mx-10 sm:px-10">
       <div className="mx-auto max-w-5xl">
         <button className="mb-6 inline-flex items-center gap-1.5 text-[13px] text-ink3 hover:text-ink" onClick={() => go('orders')}>
           <ArrowLeft size={14} /> Back to Tidewise (owner view)
@@ -45,7 +45,7 @@ export default function Portal({ go }: { go: (p: Page) => void }) {
         <header className="flex flex-wrap items-end justify-between gap-4 border-b border-edge pb-6">
           <div>
             <div className="eyebrow">Trade orders</div>
-            <h1 className="mt-2 text-[40px] leading-none">Seri Rotan Furniture</h1>
+            <h1 className="mt-2 text-[40px] leading-none">Mamak Duos Sdn Bhd</h1>
             <p className="mt-2 text-[14.5px] text-ink2">Rattan and teak furniture, made in Muar, Malaysia. Book production for your next order.</p>
           </div>
           <span className="rounded-full border border-edge bg-card px-3 py-1 text-[12px] text-ink3">Demo portal · fictional business</span>
@@ -96,7 +96,7 @@ export default function Portal({ go }: { go: (p: Page) => void }) {
               </div>
               {err && <div className="text-[13px] text-bad">{err}</div>}
               <button className="btn btn-primary justify-center !py-3 text-[14px]" disabled={!ready || busy}>{busy ? 'Sending…' : 'Book this order'}</button>
-              <p className="text-[12px] leading-relaxed text-ink3">Prices are set by Seri Rotan, not by this form. New customers are asked for a deposit; the balance is due 30 days after delivery.</p>
+              <p className="text-[12px] leading-relaxed text-ink3">Prices are set by Mamak Duos, not by this form. New customers are asked for a deposit; the balance is due 30 days after delivery.</p>
             </div>
           </form>
         )}

@@ -22,20 +22,20 @@ export default function Today({ go }: { go: (p: Page) => void }) {
 
   return (
     <>
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-6 border-b border-edge pb-7">
-        <div className="max-w-3xl">
-          <div className="eyebrow">{data.profile.legal_name} · books as of {shortDate(data.as_of)}</div>
-          <h1 className="mt-3 text-[38px] leading-[1.1]">
-            {greet}, {data.profile.owner}.{' '}
-            {gap ? (
-              <span className="text-ink2">Cash runs short on <span className="text-bad">{shortDate(fc.first_buffer_breach)}</span> — here's why, and the cheapest fix.</span>
-            ) : (
-              <span className="text-ink2">You stay above your cash floor for the next 13 weeks.</span>
-            )}
-          </h1>
+      <header className="daily-brief mb-6">
+        <div className="relative z-10 max-w-2xl">
+          <div className="brief-kicker"><span /> YOUR DAILY FINANCIAL BRIEF</div>
+          <h1 className="mt-4 text-[28px] leading-[1.2] sm:text-[34px]">{greet}, Operating Team.</h1>
+          <p className="mt-3 max-w-xl brief-copy text-[14px] leading-relaxed">
+            {gap ? <>Your cash is forecast to fall below your safety floor on <strong className="font-semibold">{shortDate(fc.first_buffer_breach)}</strong>. Review the cause and available options below.</> : <>You’re above your cash floor for the next 13 weeks.</>}
+          </p>
+          <div className="mt-6 flex flex-wrap items-center gap-4">
+            <button className="btn btn-primary !px-5 !py-3" onClick={() => go('copilot')}><Bot size={17} /> Review with Copilot <ArrowRight size={15} /></button>
+            <span className="brief-meta text-xs">Mamak Duos Sdn Bhd · {shortDate(data.as_of)}</span>
+          </div>
         </div>
-        <button className="btn btn-primary !px-5 !py-2.5" onClick={() => go('copilot')}><Bot size={16} /> Ask Tidewise what to do</button>
       </header>
+      <div className="section-heading mb-3 flex items-center justify-between"><h2 className="text-[16px]">Your business at a glance</h2><span className="text-[11px] text-ink3">13-week outlook</span></div>
 
       {data.paused && (
         <div className="mb-5 rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-[13.5px] text-ink">

@@ -1,4 +1,4 @@
-import { Activity, Banknote, Workflow, Bot, CheckSquare, ClipboardList, FileCheck2, HeartPulse, Inbox, LayoutDashboard, LineChart, ShieldCheck } from 'lucide-react'
+import { ChevronRight, Activity, Banknote, Workflow, Bot, CheckSquare, ClipboardList, FileCheck2, HeartPulse, Inbox, LayoutDashboard, LineChart, ShieldCheck } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { cx } from './components/ui'
 import { api } from './lib/api'
@@ -59,52 +59,48 @@ export default function App() {
 
   return (
     <div className="min-h-full">
-      <aside className="fixed inset-y-0 left-0 z-20 flex w-[64px] flex-col bg-[#173f30] text-[#efe8d8] lg:w-[236px]">
-        <div className="flex h-[72px] items-center gap-3 px-4">
-          {/* Crescent moon over a swell: the moon pulls the tide. */}
-          <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden className="shrink-0">
-            <defs>
-              <clipPath id="tw-tile"><rect width="32" height="32" rx="9" /></clipPath>
-              <mask id="tw-moon"><rect width="32" height="32" fill="#fff" /><circle cx="14.8" cy="8.2" r="4.4" fill="#000" /></mask>
-            </defs>
-            <g clipPath="url(#tw-tile)">
-              <rect width="32" height="32" fill="#f5f1e8" />
-              <circle cx="12" cy="10.5" r="5" fill="#c98a2b" mask="url(#tw-moon)" />
-              <path d="M0 21c3.5 0 4.5-3.5 8-3.5s4.5 3.5 8 3.5 4.5-3.5 8-3.5 4.5 3.5 8 3.5V32H0z" fill="#1f5a43" />
-              <path d="M-2 26.5c3.5 0 4.5-2.5 8-2.5s4.5 2.5 8 2.5 4.5-2.5 8-2.5 4.5 2.5 8 2.5 4.5-2.5 8-2.5" stroke="#f5f1e8" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity=".4" />
-            </g>
-          </svg>
+      <aside className="app-sidebar fixed inset-y-0 left-0 z-20 flex w-[64px] flex-col lg:w-[248px]">
+        <div className="sidebar-brand flex h-[84px] items-center gap-3 px-4">
+          <img src="/tunku-logo.png" alt="Tunku Abdul Rahman portrait, Tidewise logo" className="brand-portrait" width="40" height="40" />
           <div className="hidden lg:block">
-            <div className="serif text-[19px] font-semibold leading-none tracking-tight">Tidewise</div>
-            <div className="mt-1 text-[11px] text-[#a9bcae]">Finance copilot for exporters</div>
+            <div className="text-[19px] font-extrabold leading-none tracking-tight">Tidewise</div>
+            <div className="mt-1 sidebar-tagline text-[11px]">Finance copilot</div>
           </div>
         </div>
-        <nav className="mt-3 flex flex-col gap-0.5 px-2.5">
+        <nav aria-label="Main navigation" className="sidebar-nav mt-1 flex flex-col gap-1 px-3">
           {NAV.map(({ page: p, label, icon: Icon }) => (
+            <div key={p}>
+            {["today", "cash", "gateway"].includes(p) && <div className="nav-group hidden lg:block">{p === "today" ? "WORKSPACE" : p === "cash" ? "FINANCIAL OPERATIONS" : "TRUST & CONTROL"}</div>}
             <button
               key={p}
               onClick={() => go(p)}
               title={label}
-              className={cx('flex items-center gap-3 rounded-lg px-3 py-2 text-left text-[13.5px] transition-colors',
-                page === p ? 'bg-[#f5f1e8] font-medium text-[#173f30]' : 'text-[#cfdccf] hover:bg-white/8 hover:text-white')}
+              aria-current={page === p ? 'page' : undefined}
+              className={cx('sidebar-link w-full flex items-center gap-3 rounded-lg px-3 py-2 text-left text-[13.5px] transition-colors',
+                page === p ? 'nav-active font-semibold' : '')}
             >
               <Icon size={17} />
               <span className="hidden flex-1 lg:inline">{label}</span>
               {p === 'approvals' && pending > 0 && (
-                <span className="num hidden rounded-full bg-[#e0a43a] px-1.5 text-[11px] font-bold text-[#1d1b16] lg:inline">{pending}</span>
+                <span className="nav-count num hidden rounded-sm px-1.5 text-[11px] font-bold lg:inline">{pending}</span>
               )}
             </button>
+            </div>
           ))}
         </nav>
-        <div className="mt-auto hidden space-y-2 p-4 text-[11.5px] leading-relaxed text-[#a9bcae] lg:block">
-          {policy?.paused && <div className="rounded-lg bg-[#e0a43a] px-3 py-2 font-semibold text-[#1d1b16]">Autonomy paused — everything waits for you</div>}
-          <div className="rounded-lg border border-white/12 px-3 py-2">
-            <span className="font-semibold text-[#efe8d8]">Sandbox mode.</span> No real money moves. Seri Rotan Furniture is a fictional business.
+        <div className="sidebar-note mt-auto hidden space-y-2 p-4 text-[11.5px] leading-relaxed lg:block">
+          {policy?.paused && <div className="rounded-lg bg-white px-3 py-2 font-semibold text-[#dc791b]">Autonomy paused — everything waits for you</div>}
+          <div className="sidebar-note-box px-3 py-2">
+            <strong>Sandbox mode.</strong> No real money moves. Mamak Duos Sdn Bhd is a fictional business.
           </div>
         </div>
       </aside>
-      <main className="pl-[64px] lg:pl-[236px]">
-        <div className="mx-auto w-full max-w-[1320px] px-4 py-9 sm:px-10">{view}</div>
+      <main className="pl-[64px] lg:pl-[248px]">
+        <div className="workspace-bar flex min-h-[70px] flex-wrap items-center justify-between gap-3 border-b border-edge px-5 py-3 sm:px-10">
+          <div className="flex items-center gap-2 text-xs text-ink3"><span className="hidden sm:inline">Workspace</span><ChevronRight size={13} className="hidden sm:block" /><span className="font-semibold text-ink">{NAV.find(n => n.page === page)?.label}</span></div>
+          <div className="flex items-center gap-4"><span className="sandbox-pill"><span />Sandbox workspace</span><span className="owner-avatar" title="Business owner">SR</span></div>
+        </div>
+        <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-9">{view}</div>
       </main>
     </div>
   )

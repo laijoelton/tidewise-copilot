@@ -2,37 +2,37 @@
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/fraunces";
 
-/* Warm "ledger paper" palette: off-white paper, deep ink, one forest-green
-   accent. Brick and ochre are reserved for things that need attention. */
+/* Warm orange and yellow accents, with neutral surfaces and semantic status colours. */
 @theme {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Fraunces Variable", ui-serif, Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --color-canvas: #f5f1e8;
-  --color-card: #fffdf8;
-  --color-sub: #efe9dc;
-  --color-edge: #ddd4c2;
-  --color-ink: #1d1b16;
-  --color-ink2: #4f493e;
-  --color-ink3: #857c6b;
-  --color-brand: #1f5a43;
-  --color-brand-deep: #174634;
-  --color-sky: #2f5d86;
-  --color-ok: #2f7a4f;
-  --color-warn: #a96a12;
-  --color-bad: #b13f2c;
-  --color-t0: #857c6b;
-  --color-t1: #2f5d86;
-  --color-t2: #2f7a4f;
-  --color-t3: #a96a12;
-  --color-t4: #b13f2c;
+  --color-canvas: #fff8f1;
+  --color-card: #ffffff;
+  --color-sub: #fff0e0;
+  --color-edge: #edcfb4;
+  --color-ink: #302e28;
+  --color-ink2: #625e53;
+  --color-ink3: #757063;
+  --color-brand: #c04b08;
+  --color-brand-deep: #963b08;
+  --color-sky: #64748b;
+  --color-ok: #13866e;
+  --color-warn: #d97706;
+  --color-bad: #be123c;
+  --color-t0: #757063;
+  --color-t1: #64748b;
+  --color-t2: #13866e;
+  --color-t3: #d97706;
+  --color-t4: #be123c;
 }
 
 @layer base {
   html, body, #root { height: 100%; }
   body {
     background: var(--color-canvas);
+    background-attachment: fixed;
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-size: 14px;
@@ -40,11 +40,12 @@
     -webkit-font-smoothing: antialiased;
     font-feature-settings: "tnum" 1, "cv11" 1;
   }
-  h1, h2, .serif { font-family: var(--font-serif); font-optical-sizing: auto; letter-spacing: -0.01em; }
-  h1 { font-weight: 600; }
-  h2 { font-weight: 600; }
-  * { scrollbar-width: thin; scrollbar-color: #cfc5b1 transparent; }
-  ::selection { background: rgba(31, 90, 67, 0.18); }
+  h1, h2 { font-family: var(--font-sans); letter-spacing: -0.025em; }
+  .serif { font-family: var(--font-sans); letter-spacing: -0.02em; }
+  h1 { font-weight: 750; }
+  h2 { font-weight: 700; }
+  * { scrollbar-width: thin; scrollbar-color: #d9d9e0 transparent; }
+  ::selection { background: rgba(241, 166, 28, 0.25); }
   :focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; border-radius: 6px; }
   button { cursor: pointer; }
   button:disabled { cursor: not-allowed; opacity: 0.5; }
@@ -54,15 +55,17 @@
   .panel {
     background: var(--color-card);
     border: 1px solid var(--color-edge);
-    border-radius: 14px;
-    box-shadow: 0 1px 0 rgba(29, 27, 22, 0.03), 0 8px 24px -18px rgba(29, 27, 22, 0.25);
+    border-radius: 5px;
+    box-shadow: none;
     overflow-x: auto;   /* wide tables scroll inside the card on small screens */
     min-width: 0;
   }
+  .stat { position: relative; overflow: hidden; }
+  .stat::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: #ed7b23; }
   .eyebrow {
     font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.025em;
     text-transform: uppercase;
     color: var(--color-ink3);
   }
@@ -70,26 +73,68 @@
   .mono { font-family: var(--font-mono); }
   .btn {
     display: inline-flex; align-items: center; gap: 6px;
-    border-radius: 999px; padding: 7px 14px; font-weight: 500; font-size: 13px;
+    border-radius: 4px; padding: 7px 14px; font-weight: 500; font-size: 13px;
     border: 1px solid var(--color-edge); background: var(--color-card); color: var(--color-ink);
     transition: background 0.15s, border-color 0.15s, transform 0.1s;
   }
   .btn:hover:not(:disabled) { border-color: var(--color-ink3); background: #fff; }
   .btn:active:not(:disabled) { transform: translateY(1px); }
-  .btn-primary { background: var(--color-brand); border-color: var(--color-brand); color: #fbf8f1; }
+  .btn-primary { background: var(--color-brand); border-color: var(--color-brand); color: #fff; box-shadow: none; }
   .btn-primary:hover:not(:disabled) { background: var(--color-brand-deep); border-color: var(--color-brand-deep); }
   .btn-danger { color: var(--color-bad); }
   .input {
     width: 100%; border-radius: 10px; padding: 8px 12px; font-size: 13.5px;
     background: #fff; border: 1px solid var(--color-edge); color: var(--color-ink);
   }
-  .input:focus { outline: none; border-color: var(--color-brand); box-shadow: 0 0 0 3px rgba(31, 90, 67, 0.12); }
+  .input:focus { outline: none; border-color: var(--color-brand); box-shadow: 0 0 0 3px rgba(241, 166, 28, 0.18); }
   table.data { width: 100%; border-collapse: collapse; }
   table.data th { text-align: left; font-weight: 600; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-ink3); padding: 8px 10px; border-bottom: 1px solid var(--color-edge); }
-  table.data td { padding: 9px 10px; border-bottom: 1px solid #ece5d6; vertical-align: top; }
+  table.data td { padding: 9px 10px; border-bottom: 1px solid #f0f0f4; vertical-align: top; }
   table.data tr:last-child td { border-bottom: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
+
+/* A practical workspace: flat surfaces, visible dividers, warm accents. */
+.app-sidebar { background: #f7943e; border-right: 1px solid #dc7726; color: #422208; }
+.sidebar-nav { overflow-y: auto; min-height: 0; }
+.sidebar-brand { background: #ffb16a; border-bottom: 3px solid #c65a10; flex-shrink: 0; }
+.sidebar-tagline { color: #62350f; }
+.nav-group { margin: 15px 8px 5px; padding: 10px 3px 5px; border-top: 1px solid #cb6c24; font-size: 10px; letter-spacing: .035em; font-weight: 700; color: #5b2d0a; }
+.sidebar-link { border-radius: 3px; color: #46230c; }
+.sidebar-link:hover { background: #ffb674; color: #39200d; }
+.nav-active, .nav-active:hover { background: #fff4e3; color: #803306; box-shadow: inset 3px 0 #ab4409; }
+.nav-active svg { color: #b94b0b; }
+.nav-count { background: #f5d377; color: #633c0a; }
+.sidebar-note { color: #51290d; }
+.sidebar-note-box { border: 1px solid #e9b47d; background: #ffdda6; border-radius: 3px; }
+.sidebar-note-box strong { color: #634614; }
+.workspace-bar { background: #fff0de; border-top: 4px solid #e96b10; }
+.sandbox-pill { display: inline-flex; align-items: center; gap: 7px; padding: 5px 8px; border: 1px solid #e6d8ad; border-radius: 3px; font-size: 11px; color: #70571e; background: #fffbec; }
+.sandbox-pill > span, .brief-kicker > span { width: 6px; height: 6px; border-radius: 50%; background: #bc7612; }
+.owner-avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #f4e5c0; color: #755023; font-size: 11px; font-weight: 600; }
+.daily-brief { position: relative; border: 1px solid #ead9c4; border-left: 4px solid #db751e; border-radius: 5px; background: #fff5e7; padding: 27px 30px; color: #351b0b; }
+.brief-kicker { display: flex; align-items: center; gap: 8px; color: #492509; font-size: 11px; font-weight: 600; letter-spacing: .035em; }
+.brief-copy { color: #655646; }
+.brief-meta { color: #786b5d; }
+.stat { padding: 20px; }
+.stat .num { font-size: clamp(24px, 2.2vw, 30px); }
+.stat .eyebrow { font-size: 11px; letter-spacing: .025em; }
+.section-heading { color: #8d3c0c; border-bottom: 2px solid #ec8b40; padding-bottom: 10px; }
+.panel-heading { margin: -20px -20px 16px; padding: 13px 20px; background: #fff0df; border-bottom: 1px solid #edc8a3; color: #78350e; }
+.panel-heading h2 { font-size: 16px; }
+table.data th { padding: 11px 10px; background: #fff3e5; }
+table.data td { padding: 12px 10px; }
+table.data tbody tr:hover { background: #fff7ec; }
+.btn { min-height: 34px; }
+.input { border-radius: 4px; }
+@media (max-width: 640px) { .daily-brief { padding: 22px 18px; } .stat { padding: 16px; } }
+
+.daily-brief .btn-primary { background: var(--color-brand); border-color: var(--color-brand); color: #fff; }
+.daily-brief .btn-primary:hover:not(:disabled) { background: var(--color-brand-deep); border-color: var(--color-brand-deep); }
+.sidebar-brand { color: #9c3d08; }
+.brand-portrait { width: 40px; height: 40px; border: 2px solid #fff1da; object-fit: cover; flex-shrink: 0; border-radius: 50%; }
+
+@media (max-width: 1023px) { .sidebar-brand { padding-inline: 12px; } }

@@ -93,7 +93,7 @@ function Booking({ o }: { o: Json }) {
         <Fact label="Late-payment risk (ML)" value={a.risk != null ? `${Math.round(a.risk * 100)}%` : '—'} tone={a.risk > 0.3 ? 'warn' : 'ok'} />
         <Fact label="Deposit asked" value={a.deposit_pct != null ? `${Math.round(a.deposit_pct * 100)}%` : '—'} />
       </div>
-      {o.notes && <div className="mt-3 rounded-lg border border-edge bg-[#fbf8f0] p-3 text-[12.5px] text-ink2">“{o.notes}”</div>}
+      {o.notes && <div className="mt-3 rounded-lg border border-edge bg-[#fafafb] p-3 text-[12.5px] text-ink2">“{o.notes}”</div>}
       <div className="mt-3 space-y-1">
         <Check passed={a.screening?.trust !== 'quarantined'} name="Screening" detail={a.screening?.trust === 'quarantined' ? (a.screening.findings || []).slice(0, 2).join('; ') : 'notes are clean'} />
         <Check passed={!!a.contact_matches} name="Identity" detail={a.contact_matches ? 'booked from the contact on file' : a.known_customer ? 'known name, new email address' : 'new customer'} />
