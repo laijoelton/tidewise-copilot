@@ -292,10 +292,31 @@ def alerts(company: Company, fc: Dict[str, Any]) -> List[Dict[str, Any]]:
         if foreign / total > 0.5:
             out.append({"severity": "info", "code": "FX_EXPOSURE",
                         "title": f"{foreign / total:.0%} of receivables are in foreign currency",
-                        "detail": f"A 3% move in USD/MYR changes your receivables by about RM {foreign * 0.03:,.0f}."})
+                        "detail": _fx_detail(company, foreign)})
 
     order = {"critical": 0, "warning": 1, "info": 2}
     return sorted(out, key=lambda a: order[a["severity"]])
+
+
+def _fx_detail(company: Company, foreign_myr: float) -> str:
+    """FX exposure in plain words, using Bank Negara's live rate when reachable."""
+    from . import market
+    try:
+        snap = market.snapshot()
+    except Exception:
+        snap = None
+    usd = (snap or {}).get("usd_myr", {})
+    sd = (snap or {}).get("usd_myr_sd_13w", {})
+    if usd.get("source") == "bnm":
+        usd_open = sum(i.amount for i in company.open_invoices() if i.currency == "USD")
+        diff = usd_open * (usd["rate"] - usd["book_rate"])
+        text = (f"Bank Negara's USD/MYR on {usd['date']} is {usd['rate']:.4f} vs your book rate {usd['book_rate']:.2f}: "
+                f"your USD receivables are worth RM {abs(diff):,.0f} {'more' if diff >= 0 else 'less'} at today's rate. ")
+        if sd.get("source") == "bnm":
+            return text + (f"A typical 13-week move ({sd['value']:.1%}, from {sd['days']} days of BNM rates) shifts them "
+                           f"by about RM {foreign_myr * sd['value']:,.0f}.")
+        return text + f"A 3% move changes them by about RM {foreign_myr * 0.03:,.0f}."
+    return f"A 3% move in USD/MYR changes your receivables by about RM {foreign_myr * 0.03:,.0f}."
 
 
 # -- what-if simulator ---------------------------------------------------------------

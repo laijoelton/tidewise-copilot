@@ -2,6 +2,39 @@ import { Badge, Check, Empty, Loading, PageHead, Panel, Stat, cx } from '../comp
 import { api, pct, rm, shortDate, type Json } from '../lib/api'
 import { useLoad } from '../lib/hooks'
 
+const fx = (v: number | null | undefined, d = 4) => (v == null ? '—' : v.toFixed(d))
+
+function LiveRates() {
+  const { data: s } = useLoad(api.market)
+  if (!s) return null
+  const cn = s.china
+  const src = (x: Json) => (x?.source === 'fallback' ? <span className="text-ink3">offline</span> : <span className="text-ink3">{x.date ? shortDate(x.date) : ''}</span>)
+  const rows: [string, string, string, Json][] = [
+    ['USD / MYR', fx(s.usd_myr.rate), 'Bank Negara Malaysia', s.usd_myr],
+    ['CNY / MYR', fx(s.cny_myr.rate), 'Bank Negara Malaysia', s.cny_myr],
+    ['CNY / MYR · 人民币中间价', fx(cn.cny_myr_parity.rate, 5), 'CFETS · People\'s Bank of China', cn.cny_myr_parity],
+    ['USD / CNY · 人民币中间价', fx(cn.usd_cny_parity.rate), 'CFETS · People\'s Bank of China', cn.usd_cny_parity],
+    ['OPR (Malaysia)', s.opr.level_pct == null ? '—' : `${s.opr.level_pct.toFixed(2)}%`, 'Bank Negara Malaysia', s.opr],
+    ['LPR 1Y / 5Y · 贷款市场报价利率', cn.lpr['1y_pct'] == null ? '—' : `${cn.lpr['1y_pct'].toFixed(2)}% / ${cn.lpr['5y_pct']?.toFixed(2) ?? '—'}%`, 'CFETS · People\'s Bank of China', cn.lpr],
+  ]
+  return (
+    <Panel className="mt-4" title="Live rates · Malaysia & China">
+      <table className="data">
+        <thead><tr><th>Rate</th><th className="text-right">Value</th><th>Source</th><th className="text-right">As of</th></tr></thead>
+        <tbody>
+          {rows.map(([name, v, who, x]) => (
+            <tr key={name}><td>{name}</td><td className="num text-right">{v}</td><td className="text-[12.5px] text-ink2">{who}</td><td className="text-right text-[12px]">{src(x)}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-3 text-[12.5px] text-ink3">
+        {s.cny_myr_gap_pct != null && <>Malaysia's and China's official yuan–ringgit rates differ by {Math.abs(s.cny_myr_gap_pct).toFixed(2)}%. </>}
+        Your books use fixed sandbox rates (USD {fx(s.usd_myr.book_rate, 2)}) so the demo is reproducible; live rates value your foreign receivables today and set the currency swing in the risk simulation.
+      </p>
+    </Panel>
+  )
+}
+
 export default function Financing() {
   const { data: m, error } = useLoad(api.financing)
   if (!m) return <Loading error={error} />
@@ -14,7 +47,12 @@ export default function Financing() {
 
   return (
     <>
-      <PageHead title="Financing" sub="Every product is checked rule by rule against your own books. Order: eligible → arrives in time → not high-cost → covers the need → cheapest. The catalogue is illustrative (fictional providers)." />
+      <PageHead title="Financing" sub="Every product is checked rule by rule against your own books. Order: eligible → arrives in time → not high-cost → covers the need → cheapest. The catalogue is illustrative (fictional providers)."
+        action={
+          <div className="flex flex-wrap gap-2 text-[12.5px]">
+            <div className="rounded-lg border border-edge bg-card px-3 py-2"><span className="eyebrow">BNM OPR</span> <span className="num ml-1 font-semibold">{m.opr?.level_pct != null ? `${m.opr.level_pct.toFixed(2)}%` : '—'}</span></div>
+            <div className="rounded-lg border border-edge bg-card px-3 py-2"><span className="eyebrow">China LPR 1Y</span> <span className="num ml-1 font-semibold">{m.lpr?.['1y_pct'] != null ? `${m.lpr['1y_pct'].toFixed(2)}%` : '—'}</span></div>
+          </div>} />
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="You need" value={rm(m.need)} hint={`by ${shortDate(m.need_by)} (planning ${rm(m.target_with_fee_margin)} incl. fee margin)`} tone="bad" />
         <Stat label="Recommended plan" value={m.recommended_plan.map((p: Json) => p.id).join(' + ') || '—'} hint={m.plan_covers_need ? 'closes the gap' : `still short ${rm(m.unmet)}`} tone={m.plan_covers_need ? 'ok' : 'warn'} />
@@ -53,6 +91,7 @@ export default function Financing() {
           </div>
         ))}
       </div>
+      <LiveRates />
     </>
   )
 }

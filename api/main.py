@@ -26,7 +26,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
 from tidewise.engine.ratelimit import RateLimiter  # noqa: E402
-from tidewise import analysis, bookings, cashflow, financing, matching, redteam, risk  # noqa: E402
+from tidewise import analysis, bookings, cashflow, financing, market, matching, redteam, risk  # noqa: E402
 from datetime import date as _date  # noqa: E402
 from tidewise.agent import Workspace  # noqa: E402
 from tidewise.policy import BASE_TIER, TIER_LABEL  # noqa: E402
@@ -203,7 +203,17 @@ def create_booking(body: BookingIn):
 @app.get("/api/financing")
 def get_financing():
     fc = cashflow.forecast(ws.company)
-    return financing.match_for_forecast(ws.company, fc) or {"need": 0, "options": [], "recommended_plan": []}
+    m = financing.match_for_forecast(ws.company, fc) or {"need": 0, "options": [], "recommended_plan": []}
+    snap = market.snapshot()
+    return {**m, "opr": snap["opr"], "lpr": snap["china"]["lpr"]}
+
+
+@app.get("/api/market")
+def get_market():
+    """Live central-bank data: Bank Negara Malaysia (USD/MYR, CNY/MYR, 13-week
+    USD volatility, OPR) and China's CFETS (RMB central parity, LPR), each
+    value labelled bnm, cfets or fallback."""
+    return market.snapshot()
 
 
 @app.get("/api/inbox")

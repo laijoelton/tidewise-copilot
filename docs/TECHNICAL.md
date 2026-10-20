@@ -278,6 +278,29 @@ All assumptions live in `risk.ASSUMPTIONS` and are returned by the API, so they 
 - **Offline understanding:** Chinese and Malay phrasings are mapped onto the router's English vocabulary (for example 概率 → "chances", "bagaimana jika … bayar 30 hari lewat" → "what if … pays 30 days late"). This mapping is used for routing only. The audit log keeps the owner's original words. Chat-approval refusals work in every language ("批准所有…", "luluskan semua…").
 - **Replies:** headline sentences, section titles and plan steps come from translated templates. With Gemini, `narrate(..., lang=)` writes the whole reply in that language and must keep amounts as "RM 12,345". `grounded()` still rejects any invented figure.
 
+### 3.16 Live market data (`tidewise/market.py`)
+
+- **Malaysia:** Bank Negara Malaysia Open API (`https://api.bnm.gov.my/public`, header `Accept: application/vnd.BNM.API.v1+json`). It is free and needs no key.
+  - `/exchange-rate/{USD,CNY}?session=…&quote=rm`, trying the latest session first (17:00 → 12:00 → 11:30 → 09:00). Later sessions answer 404 until they are published, so the fallback is the latest 17:00 close from the monthly series. Rates are divided by `unit`.
+  - 12 months of `/exchange-rate/USD/year/{y}/month/{m}`.
+  - `/opr`.
+- **China:** CFETS (chinamoney.com.cn), which publishes the RMB central parity for the People's Bank of China. There's no documented public API, so Tidewise reads the JSON files the CFETS website itself loads; they were checked against the live site on 20 Oct 2026.
+  - `…/data/fx/ccpr.json`: central parity records (`vrtEName`, `price`), including `CNY/MYR` and `USD/CNY`.
+  - `…/data/currency/bk-lpr.json`: LPR 1Y and 5Y (`termCode`, value in the `shibor` field).
+- **Where it's used:**
+  - **Financing page:** a "Live rates · Malaysia & China" table (BNM vs CFETS yuan–ringgit side by side, OPR, LPR).
+  - **FX alert:** today's BNM rate vs the book rate shows what USD receivables are worth today.
+  - **Monte Carlo:** the 13-week USD/MYR s.d. = s.d. of daily log returns × √65, from BNM history. It replaces the hand-set 3% when at least 60 days are available.
+  - **Financing page:** shows the OPR.
+- **Books unchanged:** the books keep `models.FX_RATES`, so demo numbers and tests stay reproducible.
+- **Robustness:**
+  - 4-second timeout;
+  - disk cache in `.cache/` (gitignored) for 6 hours, with stale data preferred over none;
+  - a 10-minute back-off per host after a connection failure, so an offline laptop never hangs the UI (an answered "no records" is cached for 30 minutes instead, and doesn't trip the back-off);
+  - `TIDEWISE_LIVE_DATA=off` switches it off;
+  - every value carries `source: "bnm"` or `"fallback"`.
+- **Endpoint:** `GET /api/market`.
+
 ## 4. LLM boundary
 
 - **Inputs:** the owner's message, plus structured and masked facts (forecast numbers, alert titles, plan, action outcomes). It never receives raw email or document text.
@@ -292,7 +315,7 @@ All assumptions live in `risk.ASSUMPTIONS` and are returned by the API, so they 
 
 | Channel | Endpoints |
 |---|---|
-| Read | `GET /api/overview` (incl. root-cause chain and breach probability), `/forecast`, `/risk` (Monte Carlo), `/risk/plan?target=0.05` (confidence planner), `/analysis`, `/matching`, `/orders`, `/financing`, `/inbox`, `/ledger`, `/policy`, `/audit`, `/audit/receipt/{id}`, `/sandbox`, `/approvals` |
+| Read | `GET /api/overview` (incl. root-cause chain and breach probability), `/forecast`, `/risk` (Monte Carlo), `/risk/plan?target=0.05` (confidence planner), `/market` (live Bank Negara data), `/analysis`, `/matching`, `/orders`, `/financing`, `/inbox`, `/ledger`, `/policy`, `/audit`, `/audit/receipt/{id}`, `/sandbox`, `/approvals` |
 | Conversation | `POST /api/chat` (max 2,000 chars; optional `lang`: `en` / `zh` / `ms`), `POST /api/whatif` (bounded inputs) |
 | Owner (needs `X-Owner-Token`) | `POST /api/approvals/{id}/approve` (`confirm_amount` for step-up), `/reject`, `POST /api/autonomy` (kill switch), `POST /api/reset` |
 | Customer channel | `POST /api/bookings` (validated; prices from our catalogue; notes screened) |
@@ -306,7 +329,8 @@ Hardening:
 
 ## 6. Testing
 
-`python run_tests.py` runs **87 tests**:
+`python run_tests.py` runs **99 tests**:
+- **`test_market.py`:** fixtures with the real response shapes from BNM and CFETS; latest-session selection and the monthly-close fallback; "no records" not tripping the back-off; units; 13-week volatility; OPR, RMB central parity and LPR parsing; one source down while the other keeps working; full offline fallback; caching; the off switch; and the FX alert using the live rate;
 - **`test_risk_i18n.py`:**
   - the noise-free simulation equals the deterministic forecast, results are reproducible, and the bands are ordered;
   - the planner reaches its target, beats the classic plan, never uses high-cost or late money, and never touches the real books;

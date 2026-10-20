@@ -45,7 +45,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from . import cashflow, financing, matching
+from . import cashflow, financing, market, matching
 from .i18n import L
 from .models import Company, to_base
 
@@ -59,7 +59,7 @@ ASSUMPTIONS = {
     "default_delay_sd_days": 5.0,      # customers with <2 paid invoices
     "late_tail_extra_days": 12.0,      # mean extra days beyond due+30 when the ML tail hits
     "hold_range": (-0.35, 0.6),        # PO-mismatch hold: -35% .. +60% of the expected days
-    "usd_myr_sd": 0.03,                # 13-week USD/MYR move, 1 s.d.
+    "usd_myr_sd": 0.03,                # 13-week USD/MYR move, 1 s.d. — replaced by BNM history when reachable
     "doubtful_recovery_p": 0.25,       # chance a doubtful debt is paid within the horizon
     "deposit_arrives_p": 0.85,         # chance a requested deposit arrives within the horizon
     "deposit_delay_max_days": 14,
@@ -100,7 +100,8 @@ def _paths(company: Company, sims: int = SIMS, seed: int = SEED, weeks: int = WE
     flows = np.zeros((sims, H + 1))          # column H = "after the horizon" (ignored)
     uncertain: List[Dict[str, Any]] = []
     shared = _rng(seed, "__shared__")
-    fx = 1 + shared.normal(0, ASSUMPTIONS["usd_myr_sd"], sims) if noise else np.ones(sims)
+    fx_sd = market.fx_sd(ASSUMPTIONS["usd_myr_sd"])["value"]
+    fx = 1 + shared.normal(0, fx_sd, sims) if noise else np.ones(sims)
     sales_level = np.clip(1 + shared.normal(0, ASSUMPTIONS["sales_level_sd"], sims), 0.3, None) if noise else np.ones(sims)
 
     def put(day_idx: np.ndarray, amount: np.ndarray):
@@ -223,7 +224,7 @@ def simulate(company: Company, sims: int = SIMS, seed: int = SEED, weeks: int = 
     det = cashflow._project(company, P["built"], P["opening"], weeks)
     out = _summary(company, P)
     out.update({"as_of": company.as_of.isoformat(), "cash_buffer": company.cash_buffer_myr,
-                "seed": seed, "assumptions": ASSUMPTIONS,
+                "seed": seed, "assumptions": ASSUMPTIONS, "fx_volatility": market.fx_sd(ASSUMPTIONS["usd_myr_sd"]),
                 "deterministic": {"funding_gap": det["funding_gap"], "trough": det["trough"],
                                   "first_buffer_breach": det["first_buffer_breach"]}})
     return out

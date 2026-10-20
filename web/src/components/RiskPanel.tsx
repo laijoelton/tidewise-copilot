@@ -72,6 +72,8 @@ export function RiskPanel({ weekly }: { weekly: Json[] }) {
       <p className="mt-4 text-[12px] text-ink3">
         Each future draws payment dates from each customer's own history, adds the ML collection-risk tail (paid 30+ days late),
         varies how long a PO-mismatch hold lasts, USD/MYR, deposits and run-rate sales. Bills, payroll and repayments stay fixed.
+        {' '}USD/MYR swing: <span className="num">{pct(r.fx_volatility.value, 1)}</span> over 13 weeks
+        {r.fx_volatility.source === 'bnm' ? `, from ${r.fx_volatility.days} days of live Bank Negara rates.` : ' (built-in assumption; Bank Negara data not reachable).'}
       </p>
     </Panel>
   )
