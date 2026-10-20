@@ -26,7 +26,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
 from tidewise.engine.ratelimit import RateLimiter  # noqa: E402
-from tidewise import analysis, arena, bookings, cashflow, financing, guard, market, matching, redteam, risk  # noqa: E402
+from tidewise import analysis, arena, bookings, cashflow, financing, guard, impact, market, matching, redteam, risk  # noqa: E402
 from datetime import date as _date  # noqa: E402
 from tidewise.agent import Workspace  # noqa: E402
 from tidewise.policy import BASE_TIER, TIER_LABEL  # noqa: E402
@@ -214,6 +214,13 @@ class AttackIn(BaseModel):
     display_name: str = Field(default="", max_length=120)
     subject: str = Field(default="", max_length=200)
     body: str = Field(min_length=1, max_length=4000)
+
+
+@app.get("/api/impact")
+def get_impact():
+    """What Tidewise has done for the owner: cash gap closed and risk cut, cost
+    of the fix vs the fast-cash alternative, fraud blocked, work automated."""
+    return impact.impact(ws)
 
 
 @app.get("/api/attack/presets")

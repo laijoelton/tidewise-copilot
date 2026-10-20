@@ -47,6 +47,7 @@ Ask "what if Harbour pays 30 days late and sales drop 20%?" and Tidewise re-runs
     - **China's CFETS, the People's Bank of China's FX platform:** the official **RMB central parity** (人民币中间价) for CNY/MYR and USD/CNY, and the **Loan Prime Rate** (LPR, 贷款市场报价利率). The Financing page shows Malaysia's and China's official yuan–ringgit rates side by side.
     - The books keep fixed sandbox rates, so the demo stays reproducible. Offline, every value falls back and is labelled as such.
 11. **"Try to fool Tidewise."** On the Security page, anyone can write their own attack email: a fake supplier, a hidden instruction for the AI, a polite paraphrase, Chinese or Malay. It runs through the real defences on a throw-away copy of the books, layer by layer (sender check → content rules → ML classifier), and then Tidewise tries to do what the email asks. The page also shows the same request **as if every filter had missed it**: outside content still can't move money (new bank details are refused outright; anything else waits for the owner). Money moved: **RM 0**, every time.
+12. **Impact, in money.** The Today page shows what Tidewise has done, all from the session's own records. In the demo: the RM 92,020 gap closed and the breach risk cut from 100% to 1.4%; the fix cost RM 2,058 against RM 16,564 for a merchant cash advance at 346% APR (**RM 14,506 saved**); RM 146,000 of scam payments blocked; 16 tasks done for the owner (about 3 hours, estimated).
 
 ---
 
@@ -169,7 +170,7 @@ Optional: put `GEMINI_API_KEY` in `.env` (see `.env.example`) and Gemini will ph
 python run_tests.py
 ```
 
-This runs 111 tests covering the attack lab, live Bank Negara and CFETS data (offline fixtures), the agent loop, policy, sandbox, guard, ML models, three-way match, bookings, forecast, what-if, Monte Carlo risk and the confidence planner, financing, the multilingual Copilot, red team and the Merkle log.
+This runs 114 tests covering the impact panel, the attack lab, live Bank Negara and CFETS data (offline fixtures), the agent loop, policy, sandbox, guard, ML models, three-way match, bookings, forecast, what-if, Monte Carlo risk and the confidence planner, financing, the multilingual Copilot, red team and the Merkle log.
 
 ```bash
 python -m tidewise.redteam

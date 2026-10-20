@@ -39,6 +39,7 @@ export const api = {
   chat: (message: string, lang?: string) => call('/api/chat', { method: 'POST', body: JSON.stringify({ message, lang: lang || null }) }),
   risk: () => call('/api/risk'),
   market: () => call('/api/market'),
+  impact: () => call('/api/impact'),
   attackPresets: () => call('/api/attack/presets'),
   attack: (email: Json) => call('/api/attack', { method: 'POST', body: JSON.stringify(email) }),
   riskPlan: (target: number) => call(`/api/risk/plan?target=${target}`),

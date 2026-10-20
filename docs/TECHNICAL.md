@@ -313,6 +313,14 @@ All assumptions live in `risk.ASSUMPTIONS` and are returned by the API, so they 
 - **API:** `GET /api/attack/presets`, `POST /api/attack` (validated: sender must look like an email address; body ≤ 4,000 characters; rate-limited like every endpoint).
 - **Tests (`test_arena.py`):** every preset is quarantined and refused; a normal email isn't treated as an attack; the paraphrase is caught only by the ML layer; with the filters "missed", nothing auto-executes; a novel attack written for the test still moves RM 0.
 
+### 3.18 Impact panel (`tidewise/impact.py`)
+
+- **Before vs now:** a fresh copy of the demo books against the session's current books: funding gap, breach probability (Monte Carlo) and the 1-in-10 gap.
+- **Cost of the fix:** what was actually charged (supplier surcharges from the bills, financing fees from the repayments the sandbox lender booked), against the fast-cash alternative priced exactly as the Financing page prices it (`financing.match_for_forecast`, the high-cost on-time option).
+- **Fraud blocked:** the amounts asked for by quarantined emails; risky bookings declined listed separately; live attack-lab attempts counted from the audit trail.
+- **Work done:** counts from the sandbox outbox and operation log. Time saved = stated minutes per task (`impact.MINUTES`), labelled an estimate.
+- **API:** `GET /api/impact`. Tests: `test_impact.py`.
+
 ## 4. LLM boundary
 
 - **Inputs:** the owner's message, plus structured and masked facts (forecast numbers, alert titles, plan, action outcomes). It never receives raw email or document text.
@@ -327,7 +335,7 @@ All assumptions live in `risk.ASSUMPTIONS` and are returned by the API, so they 
 
 | Channel | Endpoints |
 |---|---|
-| Read | `GET /api/overview` (incl. root-cause chain and breach probability), `/forecast`, `/risk` (Monte Carlo), `/risk/plan?target=0.05` (confidence planner), `/market` (live Bank Negara data), `/attack/presets`, `/analysis`, `/matching`, `/orders`, `/financing`, `/inbox`, `/ledger`, `/policy`, `/audit`, `/audit/receipt/{id}`, `/sandbox`, `/approvals` |
+| Read | `GET /api/overview` (incl. root-cause chain and breach probability), `/forecast`, `/risk` (Monte Carlo), `/risk/plan?target=0.05` (confidence planner), `/market` (live Bank Negara data), `/impact`, `/attack/presets`, `/analysis`, `/matching`, `/orders`, `/financing`, `/inbox`, `/ledger`, `/policy`, `/audit`, `/audit/receipt/{id}`, `/sandbox`, `/approvals` |
 | Conversation | `POST /api/chat` (max 2,000 chars; optional `lang`: `en` / `zh` / `ms`), `POST /api/attack` (attack lab, sandboxed), `POST /api/whatif` (bounded inputs) |
 | Owner (needs `X-Owner-Token`) | `POST /api/approvals/{id}/approve` (`confirm_amount` for step-up), `/reject`, `POST /api/autonomy` (kill switch), `POST /api/reset` |
 | Customer channel | `POST /api/bookings` (validated; prices from our catalogue; notes screened) |
@@ -341,7 +349,8 @@ Hardening:
 
 ## 6. Testing
 
-`python run_tests.py` runs **111 tests**:
+`python run_tests.py` runs **114 tests**:
+- **`test_impact.py`:** nothing claimed before anything is done; fast cash priced exactly as the Financing page; after the demo, gap closed, risk under 5%, cost = surcharges + fees, RM 146,000 of scam payments blocked;
 - **`test_arena.py`:** the attack lab: presets quarantined and refused, defence in depth when the filters miss, no false alarm on normal mail, RM 0 moved;
 - **`test_market.py`:** fixtures with the real response shapes from BNM and CFETS; latest-session selection and the monthly-close fallback; "no records" not tripping the back-off; units; 13-week volatility; OPR, RMB central parity and LPR parsing; one source down while the other keeps working; full offline fallback; caching; the off switch; and the FX alert using the live rate;
 - **`test_risk_i18n.py`:**
