@@ -28,9 +28,9 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
 }
 
 export type Page =
-  | 'today' | 'copilot' | 'approvals' | 'cash' | 'orders' | 'invoices' | 'financing' | 'inbox' | 'health' | 'security' | 'activity' | 'portal'
+  | 'today' | 'copilot' | 'approvals' | 'cash' | 'orders' | 'invoices' | 'financing' | 'inbox' | 'health' | 'gateway' | 'security' | 'activity' | 'portal'
 
-export const PAGES: Page[] = ['today', 'copilot', 'approvals', 'cash', 'orders', 'invoices', 'financing', 'inbox', 'health', 'security', 'activity', 'portal']
+export const PAGES: Page[] = ['today', 'copilot', 'approvals', 'cash', 'orders', 'invoices', 'financing', 'inbox', 'health', 'gateway', 'security', 'activity', 'portal']
 
 export function useRoute(): [Page, (p: Page) => void] {
   const parse = () => {

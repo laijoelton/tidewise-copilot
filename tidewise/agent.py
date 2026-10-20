@@ -23,7 +23,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import analysis, bookings, cashflow, financing, guard, i18n, matching, risk
+from . import analysis, bookings, cashflow, financing, guard, i18n, matching, pipeline, risk
 from .audit import AuditTrail
 from .data import build_demo_company
 from .llm import LLM
@@ -250,6 +250,9 @@ class Agent:
         ws.audit.record("approved", approver, {"approval_id": approval_id, "action": item["action"]})
         receipt = self._execute(action)
         item["receipt"] = receipt
+        item["gates"] = self._gates({"type": action.type, "params": action.params, "decision": item["decision"],
+                                     "source_ref": action.source_ref, "approval_status": "approved",
+                                     "receipt": receipt})
         ws.audit.seal()
         return {"approval": item, "receipt": receipt}
 
@@ -288,8 +291,22 @@ class Agent:
                      "source_ref": action.source_ref}
             ws.alerts_raised.append(alert)
             ws.audit.record("blocked", "policy", alert)
+        step["source_ref"] = action.source_ref
+        step["gates"] = self._gates(step)
+        if step.get("approval_id"):
+            ws.approvals[step["approval_id"]]["gates"] = step["gates"]
+        ws.audit.record("gates", "pipeline", {"type": action.type,
+                                              "stopped_at": pipeline.stopped_at(step["gates"]),
+                                              "statuses": [g["status"] for g in step["gates"]]})
         steps.append(step)
         return step
+
+    def _gates(self, step: Dict[str, Any]) -> List[Dict[str, Any]]:
+        booking_scan = None
+        oid = step["params"].get("order_id")
+        if oid and step["type"] in ("confirm_booking", "decline_booking") and self.ws.company.order(oid):
+            booking_scan = self.ws.company.order(oid).assessment.get("scan")
+        return pipeline.trace(step, self.ws.scans, booking_scan)
 
     # -- routing ----------------------------------------------------------------------
     def _route(self, text: str) -> List[str]:

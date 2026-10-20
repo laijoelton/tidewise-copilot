@@ -1,5 +1,6 @@
 import { KeyRound } from 'lucide-react'
 import { useState } from 'react'
+import { GateTrace } from '../components/GateTrace'
 import { Check, Empty, Loading, PageHead, Panel, TierBadge } from '../components/ui'
 import { api, getOwnerToken, rm, setOwnerToken, type Json } from '../lib/api'
 import { bump, useLoad } from '../lib/hooks'
@@ -80,9 +81,11 @@ function ApprovalCard({ a }: { a: Json }) {
         </div>
         <div className="num text-xl font-semibold">{rm(a.amount_myr)}</div>
       </div>
-      <div className="mt-4 space-y-1">
-        {a.decision.checks.map((c: Json, i: number) => <Check key={i} {...c} />)}
-      </div>
+      <div className="mt-4"><GateTrace gates={a.gates} /></div>
+      <details className="mt-3">
+        <summary className="cursor-pointer text-[12.5px] text-ink3">All policy checks</summary>
+        <div className="mt-2 space-y-1">{a.decision.checks.map((c: Json, i: number) => <Check key={i} {...c} />)}</div>
+      </details>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {stepUp && (
           <input className="input num max-w-[220px]" value={amount} placeholder={`Re-type amount (${Math.round(a.amount_myr).toLocaleString()})`}

@@ -101,6 +101,7 @@ def assess(company: Company, order: Order) -> Dict[str, Any]:
 
     return {
         "screening": {"trust": scan.trust, "findings": findings, "ml": scan.ml},
+        "scan": scan.to_dict(),
         "known_customer": known, "contact_matches": bool(contact_ok),
         "risk": round(risk, 3), "risk_basis": risk_basis,
         "deposit_pct": deposit, "deposit_amount": round(order.total * deposit, 2),

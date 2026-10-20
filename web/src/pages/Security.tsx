@@ -1,6 +1,7 @@
 import { Pause, Play } from 'lucide-react'
 import { useState } from 'react'
 import { AttackLab } from '../components/AttackLab'
+import { Pipeline } from '../components/Pipeline'
 import { Badge, Loading, PageHead, Panel, TierBadge } from '../components/ui'
 import { api, rm, type Json } from '../lib/api'
 import { bump, useLoad } from '../lib/hooks'
@@ -24,6 +25,7 @@ export default function Security() {
     <>
       <PageHead title="Security" sub="The agent proposes; deterministic policy decides. The model is never asked whether an action is safe, never sees raw external content, and cannot approve anything." />
       <AttackLab />
+      <div className="mt-4"><Pipeline /></div>
       <div className="mt-4"><KillSwitch paused={policy.paused} /></div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
@@ -61,11 +63,11 @@ export default function Security() {
           <>
             <div className="mb-3 text-[15px]"><span className="num font-semibold text-ok">{report.passed}/{report.total}</span> attacks handled as expected</div>
             <table className="data">
-              <thead><tr><th>ID</th><th>Attack</th><th>Category</th><th>Expected</th><th>Actual</th><th /></tr></thead>
+              <thead><tr><th>ID</th><th>Attack</th><th>Caught at</th><th>Expected</th><th>Actual</th><th /></tr></thead>
               <tbody>
                 {report.results.map((r: Json) => (
                   <tr key={r.id}>
-                    <td className="num text-ink3">{r.id}</td><td>{r.name}</td><td className="text-ink3">{r.category}</td>
+                    <td className="num text-ink3">{r.id}</td><td>{r.name}</td><td className="num text-ink2">{r.gate ? `G${r.gate}` : 'reply guard'}</td>
                     <td className="num text-[12px]">{r.expected}</td><td className="num text-[12px]">{r.actual}</td>
                     <td>{r.passed ? <Badge tone="good">pass</Badge> : <Badge tone="critical">fail</Badge>}</td>
                   </tr>

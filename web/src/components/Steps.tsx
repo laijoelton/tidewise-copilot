@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import type { Json } from '../lib/api'
+import { GateStrip, GateTrace } from './GateTrace'
 import { Check, Outcome, TierBadge, cx } from './ui'
 
 // Renders the agent's trace for one turn: what it read, what it proposed,
@@ -35,12 +36,13 @@ function StepRow({ s }: { s: Json }) {
           <span className="font-medium">{s.type.replaceAll('_', ' ')}</span>
           <span className="text-ink3"> — {s.rationale}</span>
         </span>
-        {s.receipt && <span className="num hidden text-[11px] text-ink3 sm:inline">{s.receipt.ref}</span>}
+        <span className="hidden md:inline"><GateStrip gates={s.gates} /></span>
         <Outcome outcome={d.outcome} />
       </button>
       {open && (
         <div className="space-y-1 border-t border-edge/50 px-4 py-3">
-          <div className="mb-1 text-[12px] text-ink3">{d.tier_label} · provenance: {s.provenance}</div>
+          <GateTrace gates={s.gates} />
+          <div className="mb-1 mt-3 text-[12px] text-ink3">All policy checks · {d.tier_label} · provenance: {s.provenance}</div>
           {d.checks.map((c: Json, i: number) => <Check key={i} {...c} />)}
           {s.receipt && (
             <pre className="mono mt-2 overflow-x-auto rounded bg-canvas p-2 text-[11px] text-ink2">{JSON.stringify(s.receipt, null, 2)}</pre>
